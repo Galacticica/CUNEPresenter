@@ -2,8 +2,9 @@
     import { fade } from "svelte/transition"
     import { Main } from "../../../types/IPC/Main"
     import { sendMain } from "../../IPC/main"
-    import { activePopup, autoOpenedTimeline, openToolsTab, outputs, showNotesActive, shows, showsCache, special, styles, templates } from "../../stores"
+    import { activePopup, autoOpenedTimeline, categories, openToolsTab, outputs, showNotesActive, shows, showsCache, special, styles, templates } from "../../stores"
     import { translateText } from "../../utils/language"
+    import { bypassesOutputTemplate } from "../helpers/outputTemplate"
     import Icon from "../helpers/Icon.svelte"
     import { allOutputsHasStyleTemplate, getFirstActiveOutput } from "../helpers/output"
     import { removeTemplatesFromShow } from "../helpers/show"
@@ -74,7 +75,7 @@
     $: referenceType = currentShow?.reference?.type
     $: outputStyleId = getFirstActiveOutput($outputs)?.style || ""
     $: outputStyleTemplate = allOutputsHasStyleTemplate(referenceType === "scripture") ? $styles[outputStyleId]?.[referenceType === "scripture" ? "templateScripture" : "template"] || "" : ""
-    $: enableStylePreview = !!(outputStyleTemplate && $special.styleTemplatePreview !== false && $templates[outputStyleTemplate])
+    $: enableStylePreview = !!(outputStyleTemplate && $special.styleTemplatePreview !== false && $templates[outputStyleTemplate] && !bypassesOutputTemplate(currentShow, null, $categories[currentShow?.category || ""]))
 
     $: showTemplateId = currentShow?.settings?.template || ""
     $: showTemplateIcon = !!(showTemplateId && $templates[showTemplateId])

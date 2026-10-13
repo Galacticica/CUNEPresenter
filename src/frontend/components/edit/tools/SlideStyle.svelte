@@ -1,13 +1,15 @@
 <script lang="ts">
-    import type { Item } from "../../../../types/Show"
+    import type { Item, Slide } from "../../../../types/Show"
     import { activeDrawerTab, activeEdit, activePage, activeShow, showsCache, templates } from "../../../stores"
     import { mediaExtensions } from "../../../values/extensions"
+    import { getAccess } from "../../../utils/profile"
     import { clone } from "../../helpers/array"
     import { history } from "../../helpers/history"
-    import { getLayoutRef } from "../../helpers/show"
+    import { getLayoutRef, isSlideLocked } from "../../helpers/show"
     import { _show } from "../../helpers/shows"
     import InputRow from "../../input/InputRow.svelte"
     import MaterialButton from "../../inputs/MaterialButton.svelte"
+    import MaterialCheckbox from "../../inputs/MaterialCheckbox.svelte"
     import MaterialColorInput from "../../inputs/MaterialColorInput.svelte"
     import MaterialFilePicker from "../../inputs/MaterialFilePicker.svelte"
     import MaterialPopupButton from "../../inputs/MaterialPopupButton.svelte"
@@ -15,16 +17,19 @@
 
     $: slideId = getLayoutRef()[$activeEdit.slide || 0]?.id
     $: editSlide = $showsCache && $activeEdit.slide !== null && slideId ? _show().slides([slideId]).get()[0] : null
+    $: currentShow = $showsCache[$activeShow?.id || ""]
+    $: showReadOnly = !!currentShow?.locked || getAccess("shows").global === "read" || getAccess("shows")[currentShow?.category || ""] === "read"
 
     // $: globalGroup = _show().get("slides")[slideId]?.globalGroup || ""
     // $: groupData = $groups[globalGroup] || {}
     // $: groupTemplate = groupData.template
 
-    let settings: { template?: string; color?: string; backgroundImage?: string } = {}
+    let settings: Slide["settings"] = {}
 
     $: if ($showsCache || editSlide) setValues()
     function setValues() {
         settings = {
+            ...editSlide?.settings,
             template: editSlide?.settings?.template,
             color: editSlide?.settings?.color || "",
             backgroundImage: editSlide?.settings?.backgroundImage || ""
@@ -61,6 +66,19 @@
 
 <div class="tools">
     <div>
+        <MaterialCheckbox
+            label="show.bypass_output_template_slide"
+            title="show.bypass_output_template_tip"
+            checked={settings.bypassOutputTemplate}
+            defaultValue={false}
+            wrap
+            disabled={!editSlide || showReadOnly || isSlideLocked($activeShow?.id || "", slideId, currentShow)}
+            on:change={(e) => {
+                settings.bypassOutputTemplate = e.detail
+                update()
+            }}
+        />
+
         <MaterialColorInput
             label="edit.background_color"
             value={settings.color}

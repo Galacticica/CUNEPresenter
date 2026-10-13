@@ -6,7 +6,7 @@
     import type { OutData } from "../../../types/Output"
     import type { Styles } from "../../../types/Settings"
     import type { AnimationData, Item, LayoutRef, OutBackground, OutScene, OutSlide, Slide, SlideData, Template, Overlays as TOverlays, Transition } from "../../../types/Show"
-    import { allOutputs, colorbars, currentWindow, drawSettings, drawTool, effects, media, outputs, overlays, showsCache, styles, templates, transitionData } from "../../stores"
+    import { allOutputs, categories, colorbars, currentWindow, drawSettings, drawTool, effects, media, outputs, overlays, showsCache, styles, templates, transitionData } from "../../stores"
     import { wait } from "../../utils/common"
     import { custom } from "../../utils/transitions"
     import Draw from "../draw/Draw.svelte"
@@ -166,7 +166,7 @@
     let slideData: SlideData | null = null
     let currentSlide: Slide | null = null
 
-    $: updateSlideData(slide, outputId || styleId)
+    $: updateSlideData(slide, [outputId, styleId, $showsCache, $categories, $templates, currentStyle])
     function updateSlideData(slide, _outputChanged) {
         if (!slide) {
             currentLayout = []
@@ -213,11 +213,10 @@
     // currentSlide is so the background updates when scripture is removed (if template background on both) - not changed in preview
     $: if (styleId && currentStyle && currentSlide !== undefined) {
         if (currentSlide) setTemplateItems()
-        getStyleTemplateData()
     }
     const setTemplateItems = () => (currentSlide!.items = setTemplateStyle(slide!, currentStyle, currentSlide!.items, outputId, currentSlide!.customDynamicValues))
     let styleTemplate: Template | null = null
-    const getStyleTemplateData = () => (styleTemplate = getStyleTemplate(slide!, currentStyle))
+    $: styleTemplate = getStyleTemplate(slide, currentStyle, currentSlide?.customDynamicValues, undefined, [$showsCache, $categories, $templates])
     $: templateBackground = styleTemplate?.settings?.backgroundPath || ""
 
     // lines

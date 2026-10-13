@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy } from "svelte"
-    import { activePopup, activeStyle, drawerTabsData, outputs, popupData, scriptures, styles, templates } from "../../../stores"
+    import { activePopup, activeStyle, categories, drawerTabsData, outputs, popupData, scriptures, styles, templates } from "../../../stores"
     import { translateText } from "../../../utils/language"
     import { formatSearch } from "../../../utils/search"
     import Card from "../../drawer/Card.svelte"
@@ -9,6 +9,8 @@
     import { getResolution } from "../../helpers/output"
     import T from "../../helpers/T.svelte"
     import MaterialButton from "../../inputs/MaterialButton.svelte"
+    import MaterialCheckbox from "../../inputs/MaterialCheckbox.svelte"
+    import { updateStore } from "../../helpers/historyStores"
     import MaterialDropdown from "../../inputs/MaterialDropdown.svelte"
     import MaterialTextInput from "../../inputs/MaterialTextInput.svelte"
     import Center from "../../system/Center.svelte"
@@ -22,6 +24,12 @@
 
     let revert = $popupData.revert
     let allowEmpty = !!$popupData.allowEmpty
+    const categoryId: string = $popupData.categoryId || ""
+
+    function setCategoryBypass(value: boolean) {
+        const category = $categories[categoryId]
+        if (category) updateStore("categories", categoryId, { ...category, bypassOutputTemplate: value })
+    }
 
     $: hideIds = $popupData.hideIds || []
     $: sortedTemplates = sortByName(keysToID($templates).filter((a) => !hideIds.includes(a.id) && a?.settings?.mode !== "text"))
@@ -114,10 +122,13 @@
             loaded = true
         } else {
             if (timeout) clearTimeout(timeout)
-            timeout = setTimeout(() => {
-                const batch = lazyLoader === 0 ? 4 : Math.min(32, lazyLoader * 2)
-                lazyLoader += batch
-            }, lazyLoader === 0 ? 60 : 30)
+            timeout = setTimeout(
+                () => {
+                    const batch = lazyLoader === 0 ? 4 : Math.min(32, lazyLoader * 2)
+                    lazyLoader += batch
+                },
+                lazyLoader === 0 ? 60 : 30
+            )
         }
     }
 
@@ -151,6 +162,10 @@
 {/if}
 
 <MaterialTextInput label="main.search" value="" on:input={(e) => search(e.detail)} autofocus />
+
+{#if categoryId && $categories[categoryId]}
+    <MaterialCheckbox label="show.bypass_output_template_category" title="show.bypass_output_template_tip" checked={$categories[categoryId].bypassOutputTemplate} defaultValue={false} on:change={(e) => setCategoryBypass(e.detail)} />
+{/if}
 
 {#if customTypes}
     <MaterialDropdown label="scripture.translations" options={types} value={selectedType} on:change={(e) => (selectedType = e.detail)} />

@@ -8,6 +8,8 @@ import type { Item, LayoutRef, SlideData } from "../../../types/Show"
 import { AudioPlayer } from "../../audio/audioPlayer"
 import { duplicateEffectInStack, removeEffectFromStack } from "../../audio/effects/audioEffectsHelpers"
 import { ShowObj } from "../../classes/Show"
+import { getAccess } from "../../utils/profile"
+import { loadShows } from "../helpers/setShow"
 import { markItemsAsPlayed } from "../../converters/project"
 import { sendMain } from "../../IPC/main"
 import { cameraManager } from "../../media/cameraManager"
@@ -820,7 +822,7 @@ const clickActions = {
 
         const selectedTemplate = get(categories)[id]?.template
 
-        popupData.set({ active: selectedTemplate, allowEmpty: true, trigger: (value) => setCategoryTemplate(value) })
+        popupData.set({ active: selectedTemplate, categoryId: id, allowEmpty: true, trigger: (value) => setCategoryTemplate(value) })
         activePopup.set("select_template")
 
         function setCategoryTemplate(templateId: string) {
@@ -1102,6 +1104,16 @@ const clickActions = {
         if (!obj.contextElem?.closest(".center")) return
         activeShow.set(null)
         activeEdit.set({ items: [] })
+    },
+    bypass_output_template_show: async (obj: ObjData) => {
+        if (obj.sel?.data.length !== 1) return
+        const id = obj.sel.data[0]?.id
+        if (!id) return
+        await loadShows([id])
+        const show = get(showsCache)[id]
+        const access = getAccess("shows")
+        if (!show || show.locked || access.global === "read" || access[show.category || ""] === "read") return
+        history({ id: "UPDATE", newData: { key: "settings", subkey: "bypassOutputTemplate", data: !show.settings?.bypassOutputTemplate }, oldData: { id }, location: { page: "show", id: "show_key" } })
     },
     private: (obj: ObjData) => {
         if (!obj.sel) return

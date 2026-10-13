@@ -3,7 +3,8 @@
     import { OUTPUT } from "../../../types/Channels"
     import type { Styles } from "../../../types/Settings"
     import type { Item, Slide, TemplateStyleOverride, Transition } from "../../../types/Show"
-    import { currentWindow, groups, outputs, overlays, scriptureSettings, showsCache, styles, templates, variables } from "../../stores"
+    import { categories, currentWindow, groups, outputs, overlays, scriptureSettings, showsCache, styles, templates, variables } from "../../stores"
+    import { bypassesOutputTemplate } from "../helpers/outputTemplate"
     import { wait } from "../../utils/common"
     import { send } from "../../utils/request"
     import autosize from "../edit/scripts/autosize"
@@ -212,9 +213,10 @@
     })()
     // translation count dictates which style-specific template should apply
     $: scriptureTranslationKey = isScriptureContext ? buildScriptureTranslationKey(showReference) : ""
+    $: outputTemplateBypassed = bypassesOutputTemplate($showsCache[ref?.showId || ""], slideData, $categories[$showsCache[ref?.showId || ""]?.category || ""])
     // prefer the output-style scripture template when the current output overrides scripture layouts
     $: styleScriptureTemplateId = (() => {
-        if (!isScriptureContext || !outputStyle) return ""
+        if (!isScriptureContext || !outputStyle || outputTemplateBypassed) return ""
         const translationTemplate = scriptureTranslationKey ? (outputStyle[`templateScripture${scriptureTranslationKey}` as keyof Styles] as string | undefined) : undefined
         return translationTemplate || outputStyle.templateScripture || ""
     })()
@@ -252,7 +254,7 @@
         if (slideData?.settings?.template) return slideData.settings.template
 
         // favor output-driven templates first so overrides don't bleed between outputs
-        const styleResolved = resolveTemplate(isScriptureContext ? styleScriptureTemplateId : outputStyle?.template || "")
+        const styleResolved = outputTemplateBypassed ? "" : resolveTemplate(isScriptureContext ? styleScriptureTemplateId : outputStyle?.template || "")
         if (styleResolved) return styleResolved
 
         // group templates provide per-group defaults

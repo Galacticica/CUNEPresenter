@@ -31,6 +31,7 @@ export interface Show {
         activeLayout: ID
         // resolution?: Resolution
         template: null | ID
+        bypassOutputTemplate?: boolean
         customAction?: string // special custom trigger
         customFonts?: CustomFont[]
     }
@@ -94,6 +95,7 @@ export interface Slide {
     locked?: boolean // lock slide group to prevent changes
     settings: {
         template?: string
+        bypassOutputTemplate?: boolean
         background?: boolean
         color?: string
         backgroundImage?: string

@@ -7,7 +7,7 @@
     import { clone } from "../../helpers/array"
     import { history } from "../../helpers/history"
     import { getExtension, getMediaType } from "../../helpers/media"
-    import { getAllEnabledOutputs } from "../../helpers/output"
+    import { getAllEnabledOutputs, isOutputTemplateBypassed } from "../../helpers/output"
     import { getCustomMetadata, getLayoutRef, initializeMetadata } from "../../helpers/show"
     import { _show } from "../../helpers/shows"
     import { getStyles } from "../../helpers/style"
@@ -727,7 +727,7 @@
         }
 
         // alert if all outputs has style templates
-        if (hasLoaded && !shownTemplateTip && $special.styleTemplatePreview !== false) {
+        if (hasLoaded && !shownTemplateTip && $special.styleTemplatePreview !== false && !isOutputTemplateBypassed({ id: $activeShow?.id || "", index: $activeEdit.slide || 0 })) {
             const outputsHasStyleTemplate = getAllEnabledOutputs().every((output) => {
                 return !!$outputStyles[output?.style || ""]?.template
             })

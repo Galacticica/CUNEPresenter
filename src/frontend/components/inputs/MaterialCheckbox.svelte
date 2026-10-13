@@ -13,6 +13,7 @@
     export let disabled = false
     export let center = false
     export let small = false
+    export let wrap = false
 
     $: checkedValue = !!checked
 
@@ -33,7 +34,7 @@
     }
 </script>
 
-<div style={$$props.style || null} class="checkboxfield {center ? 'centered' : ''} {disabled ? 'disabled' : ''}" class:small data-title={translateText(title || label)} role="checkbox" aria-checked={checkedValue} tabindex={disabled ? undefined : 0} on:click={toggle} on:keydown={onKeyDown}>
+<div style={$$props.style || null} class="checkboxfield {center ? 'centered' : ''} {disabled ? 'disabled' : ''}" class:small class:wrap data-title={translateText(title || label)} role="checkbox" aria-checked={checkedValue} tabindex={disabled ? undefined : 0} on:click={toggle} on:keydown={onKeyDown}>
     <div class="background" />
     <div class="hover" />
 
@@ -88,6 +89,15 @@
     }
     .checkboxfield.small {
         padding: 4px;
+    }
+    .checkboxfield.wrap {
+        height: auto;
+        min-height: 50px;
+    }
+    .wrap .label-text {
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
     }
 
     .background {

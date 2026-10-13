@@ -44,6 +44,8 @@
         undoHistory
     } from "../../stores"
     import { translateText } from "../../utils/language"
+    import { getAccess } from "../../utils/profile"
+    import { loadShows } from "../helpers/setShow"
     import { closeContextMenu } from "../../utils/shortcuts"
     import { keysToID } from "../helpers/array"
     import Icon from "../helpers/Icon.svelte"
@@ -82,6 +84,14 @@
             if ($selected.id === "show" || $selected.id === "show_drawer") {
                 hide = !!$selected.data?.length && $selected.data?.every((a) => !!$shows[a?.id]?.locked)
             }
+        },
+        bypass_output_template_show: () => {
+            const showId = $selected.data[0]?.id
+            const show = $showsCache[showId] || $shows[showId]
+            const access = getAccess("shows")
+            disabled = $selected.data.length !== 1 || !show || !!show.locked || access.global === "read" || access[show?.category || ""] === "read"
+            enabled = !!$showsCache[showId]?.settings?.bypassOutputTemplate
+            if (showId && !$showsCache[showId]) loadShows([showId]).then(() => (enabled = !!$showsCache[showId]?.settings?.bypassOutputTemplate))
         },
         private: () => {
             let show = $shows[$selected.data[0]?.id]

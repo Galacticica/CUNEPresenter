@@ -3,7 +3,7 @@
     import type { MediaStyle } from "../../../types/Main"
     import type { Item, Media, Show, Slide, SlideData } from "../../../types/Show"
     import { removeTagsAndContent } from "../../show/slides"
-    import { activeEdit, activePage, activeShow, activeTimers, editMode, effects, focusMode, fullColors, groups, media, outputs, overlays, playerVideos, refreshListBoxes, refreshSlideThumbnails, slideDeleteHighlight, slideNotesActive, slidesOptions, slideTimers, special, styles } from "../../stores"
+    import { activeEdit, activePage, activeShow, activeTimers, categories, editMode, effects, focusMode, fullColors, groups, media, outputs, overlays, playerVideos, refreshListBoxes, refreshSlideThumbnails, slideDeleteHighlight, slideNotesActive, slidesOptions, slideTimers, special, styles, templates } from "../../stores"
     import { wait } from "../../utils/common"
     import { translateText } from "../../utils/language"
     import { getAccess } from "../../utils/profile"
@@ -226,12 +226,12 @@
     $: itemsList = clone(slide.items) || []
 
     // style template preview
-    $: if ($special.styleTemplatePreview !== false) updateItemsList(slide)
+    $: if ($special.styleTemplatePreview !== false) updateItemsList([slide, show, $categories, $templates, currentStyle, outputId])
     else itemsList = clone(slide.items) || []
     function updateItemsList(_updater: any = null) {
         // WIP show scripture style preview as well
         if (!allOutputsHasStyleTemplate(show?.reference?.type === "scripture")) return
-        itemsList = setTemplateStyle({ id: showId, index }, currentStyle, itemsList, outputId, slide?.customDynamicValues)
+        itemsList = setTemplateStyle({ id: showId, index }, currentStyle, clone(slide.items) || [], outputId, slide?.customDynamicValues, layoutSlide.id)
     }
 
     // $: styleTemplate = getStyleTemplate(null, currentStyle)

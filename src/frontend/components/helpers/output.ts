@@ -65,6 +65,7 @@ import { areObjectsEqual, clone, keysToID, removeDuplicates, sortByName, sortObj
 import { getExtension, getFileName, getMediaLayerType, getMediaType, removeExtension } from "./media"
 import { createDestination, hasStreamableDestination } from "./rtmpDestinations"
 import { getLayoutRef } from "./show"
+import { bypassesOutputTemplate } from "./outputTemplate"
 import { getFewestOutputLines, getItemWithMostLines } from "./showActions"
 import { _show } from "./shows"
 import { getStyles } from "./style"
@@ -1855,8 +1856,17 @@ export function getOutputTransitions(slideData: SlideData | null, styleTransitio
     return clone(transitions)
 }
 
-export function getStyleTemplate(outSlide: OutSlide | null, currentStyle: Styles | undefined, slideDynamicValues?: { [key: string]: any }) {
-    if (!currentStyle) return {} as Template
+export function isOutputTemplateBypassed(outSlide: OutSlide | null, slideId?: string): boolean {
+    if (!outSlide?.id || outSlide.id === "temp" || outSlide.id === "tempText") return false
+    const show = get(showsCache)[outSlide.id]
+    if (!show) return false
+    const layout = outSlide.layout || show.settings?.activeLayout
+    const resolvedSlideId = slideId || (outSlide.index !== undefined ? _show(outSlide.id).layouts([layout]).ref()[0]?.[outSlide.index]?.id : "")
+    return bypassesOutputTemplate(show, show.slides?.[resolvedSlideId || ""], get(categories)[show.category || ""])
+}
+
+export function getStyleTemplate(outSlide: OutSlide | null, currentStyle: Styles | undefined, slideDynamicValues?: { [key: string]: any }, slideId?: string, _updater?: any) {
+    if (!currentStyle || isOutputTemplateBypassed(outSlide, slideId)) return {} as Template
 
     // scripture
     const reference = _show(outSlide?.id).get("reference")
@@ -1892,7 +1902,7 @@ export function itemNeedsAutoSize(item: Item) {
     return itemHasAutoSize(item) && !item.autoFontSize
 }
 
-export function setTemplateStyle(outSlide: OutSlide | null, currentStyle: Styles, items: Item[] | undefined, outputId: string, slideDynamicValues?: { [key: string]: any }) {
+export function setTemplateStyle(outSlide: OutSlide | null, currentStyle: Styles, items: Item[] | undefined, outputId: string, slideDynamicValues?: { [key: string]: any }, slideId?: string) {
     if (!Array.isArray(items)) return []
 
     const isDrawerScripture = outSlide?.id === "temp"
@@ -1900,7 +1910,7 @@ export function setTemplateStyle(outSlide: OutSlide | null, currentStyle: Styles
 
     const customDynamicValues = isDrawerScripture ? outSlide.customDynamicValues : slideDynamicValues
 
-    const template = getStyleTemplate(outSlide, currentStyle, customDynamicValues)
+    const template = getStyleTemplate(outSlide, currentStyle, customDynamicValues, slideId)
     const templateItems = template.items || []
     const mode = template?.settings?.mode
 
