@@ -1,0 +1,7 @@
+# Local Windows installer for the customized app.
+extends: ./config/building/electron-builder.yaml
+publish: null
+artifactName: FreeShow-Custom-${version}-${arch}.${ext}
+
+win:
+    azureSignOptions: null

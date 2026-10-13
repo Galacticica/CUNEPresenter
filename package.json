@@ -38,6 +38,8 @@
         "build:servers:dev": "cross-env NODE_ENV=development node scripts/vite/createServerFiles.js",
         "build:electron:prod": "cross-env NODE_ENV=production tsc --p config/typescript/tsconfig.electron.prod.json",
         "---RELEASE---": "",
+        "installer:win": "npm-run-all -s build installer:win:package",
+        "installer:win:package": "electron-builder --config config/building/electron-builder-local.yaml --win nsis --x64 --publish never",
         "prerelease": "npm run build",
         "release": "electron-builder --config config/building/electron-builder.yaml --publish always",
         "postrelease": "node scripts/cleanBuilds.js",
