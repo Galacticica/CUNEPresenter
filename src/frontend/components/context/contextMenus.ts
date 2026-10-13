@@ -102,6 +102,9 @@ export const contextMenuItems: { [key: string]: ContextMenuItem } = {
     // newPrivateShow: { label: "new.private", icon: "private" },
     private: { label: "actions.toggle_private", icon: "private", iconColor: "#ff5454" },
     bypass_output_template_show: { label: "show.bypass_output_template_show", tooltip: "show.bypass_output_template_tip", icon: "templates" },
+    bypass_line_limit_show: { label: "show.bypass_line_limit", tooltip: "show.bypass_line_limit_tip", icon: "lines" },
+    show_line_limit: { label: "show.line_limit_options", icon: "lines" },
+    bypass_line_limit_category: { label: "show.bypass_line_limit", tooltip: "show.bypass_line_limit_category_tip", icon: "lines" },
     unlink_pco: { label: "actions.unlink_pco", icon: "bind", iconColor: "#ff5454" },
     duplicate: { label: "actions.duplicate", icon: "duplicate", iconColor: "#97c7ff", shortcuts: ["Ctrl+D"] },
     make_unique: { label: "actions.make_unique", icon: "make_unique", iconColor: "#97c7ff" },
@@ -268,7 +271,7 @@ export const contextMenuLayouts: { [key: string]: string[] } = {
     category_media: ["newFolder"],
     category_audio: ["newFolder"],
     category_scripture: ["newScripture", "createCollection"],
-    category_shows_button: ["GROUP_rename_icon", "category_action", "category_template", "metadata_display", "SEPARATOR", "delete", "SEPARATOR", "use_as_archive"],
+    category_shows_button: ["GROUP_rename_icon", "category_action", "category_template", "bypass_line_limit_category", "metadata_display", "SEPARATOR", "delete", "SEPARATOR", "use_as_archive"],
     category_shows_button_readonly: [],
     category_overlays_button: ["GROUP_rename_icon", "delete", "SEPARATOR", "use_as_archive"],
     category_templates_button: ["GROUP_rename_icon", "delete", "SEPARATOR", "use_as_archive"],
@@ -283,7 +286,7 @@ export const contextMenuLayouts: { [key: string]: string[] } = {
     // , "changeCategory" ? edit with rename & categories...
     // , "convertToOverlay"
     // , "SEPARATOR", "export"
-    drawer_show_button: ["GROUP_open", "bypass_output_template_show", "tag_set", "tag_filter", "SEPARATOR", "rename", "duplicate", "delete"], // "GROUP_rename"
+    drawer_show_button: ["GROUP_open", "bypass_output_template_show", "bypass_line_limit_show", "show_line_limit", "tag_set", "tag_filter", "SEPARATOR", "rename", "duplicate", "delete"], // "GROUP_rename"
     drawer_show_button_readonly: ["tag_filter"],
     drawer_new_show: ["newShow"],
     // media / audio
@@ -348,7 +351,7 @@ export const contextMenuLayouts: { [key: string]: string[] } = {
     project_player: ["remove"],
     // "delete" removed as too many users thought it just removed the show from the project
     // "duplicate" removed as it was people did not get that it only duplicated the reference in project, and not the entire show (keyboard / menu bar shortcuts can be used)
-    project_show: ["GROUP_rename_only", "remove", "SEPARATOR", "bypass_output_template_show", "mark_played", "private"],
+    project_show: ["GROUP_rename_only", "remove", "SEPARATOR", "bypass_output_template_show", "bypass_line_limit_show", "show_line_limit", "mark_played", "private"],
     project_show_placeholder: ["remove"],
     project_show_placeholder_template: ["GROUP_rename_only", "remove"],
     pco_item: ["unlink_pco"],

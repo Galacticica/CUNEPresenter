@@ -6,7 +6,8 @@
     import MaterialNumberInput from "../../inputs/MaterialNumberInput.svelte"
     import MaterialToggleSwitch from "../../inputs/MaterialToggleSwitch.svelte"
 
-    const lines = [0, 1, 2, 3, 4]
+    const lines = [0, 1, 2, 3, 4, 5, 6]
+    const allowDefault = !!$popupData.allowDefault
 
     let active = $popupData.active || 0
 
@@ -34,12 +35,20 @@
         style[key] = value
     }
 
-    let showMore = !!style?.showAsFaded || !!style?.skipVirtualBreaks || active > 4
+    let showMore = !!style?.showAsFaded || !!style?.skipVirtualBreaks || active > 6
 </script>
 
 <MaterialButton class="popup-options {showMore ? 'active' : ''}" icon="options" iconSize={1.3} title={showMore ? "actions.close" : "create_show.more_options"} on:click={() => (showMore = !showMore)} white />
 
 <div class="grid">
+    {#if allowDefault}
+        <MaterialButton showOutline={active === -1} isActive={active === -1} on:click={() => setValue(-1)}>
+            <div class="lines">
+                <span class="line" style="opacity: 0.6;"></span>
+            </div>
+            <p><T id="show.use_default_line_limit" /></p>
+        </MaterialButton>
+    {/if}
     {#each lines as line}
         {@const isActive = line === Number(active)}
         <MaterialButton showOutline={isActive} {isActive} on:click={() => setValue(line)}>
@@ -61,15 +70,17 @@
 </div>
 
 {#if showMore}
-    <MaterialNumberInput style="margin-top: 20px;" label="actions.custom_key" value={active} min={0} max={99} on:change={(e) => setValue(e.detail)} />
+    <MaterialNumberInput style="margin-top: 20px;" label={allowDefault ? "show.custom_line_limit" : "actions.custom_key"} value={active < 0 ? 0 : active} min={0} max={99} on:change={(e) => setValue(e.detail)} />
 
-    <InputRow arrow={style?.showAsFaded}>
-        <MaterialToggleSwitch label="edit.show_as_faded" style="width: 100%;" checked={!!style?.showAsFaded} defaultValue={false} on:change={(e) => updateStyle("showAsFaded", e.detail)} />
+    {#if styleId}
+        <InputRow arrow={style?.showAsFaded}>
+            <MaterialToggleSwitch label="edit.show_as_faded" style="width: 100%;" checked={!!style?.showAsFaded} defaultValue={false} on:change={(e) => updateStyle("showAsFaded", e.detail)} />
 
-        <div slot="menu">
-            <MaterialNumberInput label="edit.opacity (%)" value={style?.lineOpacity ?? 50} min={0} max={99} on:change={(e) => updateStyle("lineOpacity", e.detail)} />
-        </div>
-    </InputRow>
+            <div slot="menu">
+                <MaterialNumberInput label="edit.opacity (%)" value={style?.lineOpacity ?? 50} min={0} max={99} on:change={(e) => updateStyle("lineOpacity", e.detail)} />
+            </div>
+        </InputRow>
+    {/if}
 
     {#if styleId}
         <MaterialToggleSwitch label="edit.skip_virtual_breaks" checked={!!style?.skipVirtualBreaks} defaultValue={false} on:change={(e) => updateStyle("skipVirtualBreaks", e.detail)} />

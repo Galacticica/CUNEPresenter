@@ -33,6 +33,7 @@ import {
     audioChannelsData,
     audioData,
     cachedDynamicValues,
+    categories,
     customMetadata,
     dictionary,
     dynamicValueData,
@@ -66,6 +67,7 @@ import { defaultLayers, getActiveOutputs, getAllActiveOutputIds, getAllNormalOut
 import { OutputHelper } from "./OutputHelper"
 import { getSetChars } from "./randomValue"
 import { loadShows } from "./setShow"
+import { getEffectiveOutputLineLimit } from "./outputLineLimit"
 import { getCustomMetadata, getGroupName, getLayoutRef } from "./show"
 import { _show } from "./shows"
 import { addZero, getMonthName, getWeekday, joinTime, joinTimeBig, secondsToTime } from "./time"
@@ -160,8 +162,10 @@ export function getItemWithMostLines(slide: Slide | { items: Item[] }) {
 }
 
 // get output with fewest lines
-export function getFewestOutputLines(updater = get(outputs)) {
+export function getFewestOutputLines(updater = get(outputs), showId?: string) {
     const outs = getActiveOutputs(updater, true, true, true)
+    const show = get(showsCache)[showId ?? updater[outs[0]]?.out?.slide?.id ?? ""]
+    if (getEffectiveOutputLineLimit(show, get(categories)[show?.category || ""], 1) === 0) return 0
 
     let currentLines = 0
     outs.forEach((id: string) => {
@@ -172,7 +176,7 @@ export function getFewestOutputLines(updater = get(outputs)) {
         if (!style) return
         const styleLines = style.layers || defaultLayers
         if (Array.isArray(styleLines) && !styleLines.includes("slide")) return
-        const lines = Number(style.lines || 0)
+        const lines = getEffectiveOutputLineLimit(show, get(categories)[show?.category || ""], style.lines)
         if (!lines) return
 
         if (!currentLines || lines < currentLines) currentLines = lines

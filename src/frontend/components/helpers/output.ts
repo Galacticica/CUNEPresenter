@@ -66,6 +66,7 @@ import { getExtension, getFileName, getMediaLayerType, getMediaType, removeExten
 import { createDestination, hasStreamableDestination } from "./rtmpDestinations"
 import { getLayoutRef } from "./show"
 import { bypassesOutputTemplate } from "./outputTemplate"
+import { getEffectiveOutputLineLimit } from "./outputLineLimit"
 import { getFewestOutputLines, getItemWithMostLines } from "./showActions"
 import { _show } from "./shows"
 import { getStyles } from "./style"
@@ -1959,11 +1960,12 @@ export function getOutputLines(outSlide: OutSlide, styleLines = 0) {
 
     let progress = ((outSlide.line || 0) + 1) / maxLines
 
-    const maxStyleLines = Number(styleLines || 0)
+    const show = get(showsCache)[outSlide.id]
+    const maxStyleLines = getEffectiveOutputLineLimit(show, get(categories)[show?.category || ""], styleLines)
 
     // ensure last content is shown when e.g. two styles has 2 & 3 lines, and the slide has 4 lines
     const outputsList = isOutputWindow() ? get(allOutputs) : get(outputs)
-    const amountOfLinesToShow: number = getFewestOutputLines(outputsList)
+    const amountOfLinesToShow: number = getFewestOutputLines(outputsList, outSlide.id)
     if ((outSlide.line || 0) + amountOfLinesToShow > maxLines) progress = 1
 
     const linesIndex = Math.ceil(maxLines * progress) - 1

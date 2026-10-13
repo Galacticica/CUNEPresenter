@@ -10,6 +10,7 @@ import { duplicateEffectInStack, removeEffectFromStack } from "../../audio/effec
 import { ShowObj } from "../../classes/Show"
 import { getAccess } from "../../utils/profile"
 import { loadShows } from "../helpers/setShow"
+import { updateStore } from "../helpers/historyStores"
 import { markItemsAsPlayed } from "../../converters/project"
 import { sendMain } from "../../IPC/main"
 import { cameraManager } from "../../media/cameraManager"
@@ -1114,6 +1115,48 @@ const clickActions = {
         const access = getAccess("shows")
         if (!show || show.locked || access.global === "read" || access[show.category || ""] === "read") return
         history({ id: "UPDATE", newData: { key: "settings", subkey: "bypassOutputTemplate", data: !show.settings?.bypassOutputTemplate }, oldData: { id }, location: { page: "show", id: "show_key" } })
+    },
+    bypass_line_limit_show: async (obj: ObjData) => {
+        if (obj.sel?.data.length !== 1) return
+        const id = obj.sel.data[0]?.id
+        if (!id) return
+        await loadShows([id])
+        const show = get(showsCache)[id]
+        const access = getAccess("shows")
+        if (!show || show.locked || access.global === "read" || access[show.category || ""] === "read") return
+        history({ id: "UPDATE", newData: { key: "settings", subkey: "bypassOutputLineLimit", data: !show.settings?.bypassOutputLineLimit }, oldData: { id }, location: { page: "show", id: "show_key" } })
+    },
+    show_line_limit: async (obj: ObjData) => {
+        if (obj.sel?.data.length !== 1) return
+        const id = obj.sel.data[0]?.id
+        if (!id) return
+        await loadShows([id])
+        const show = get(showsCache)[id]
+        const access = getAccess("shows")
+        if (!show || show.locked || access.global === "read" || access[show.category || ""] === "read") return
+        popupData.set({
+            allowDefault: true,
+            active: show.settings?.bypassOutputLineLimit ? 0 : (show.settings?.outputLineLimit ?? -1),
+            trigger: (value: number) => {
+                if (!Number.isInteger(value) || value < -1 || value > 99) return
+                const currentShow = get(showsCache)[id]
+                const currentAccess = getAccess("shows")
+                if (!currentShow || currentShow.locked || currentAccess.global === "read" || currentAccess[currentShow.category || ""] === "read") return
+                const settings = { ...currentShow.settings, bypassOutputLineLimit: value === 0 }
+                if (value > 0) settings.outputLineLimit = value
+                else delete settings.outputLineLimit
+                history({ id: "UPDATE", newData: { key: "settings", data: settings }, oldData: { id }, location: { page: "show", id: "show_key" } })
+            }
+        })
+        activePopup.set("max_lines")
+    },
+    bypass_line_limit_category: (obj: ObjData) => {
+        if (obj.sel?.data.length !== 1) return
+        const id = obj.sel.data[0]
+        const category = get(categories)[id]
+        const access = getAccess("shows")
+        if (!category || access.global === "read" || access[id] === "read") return
+        updateStore("categories", id, { ...category, bypassOutputLineLimit: !category.bypassOutputLineLimit })
     },
     private: (obj: ObjData) => {
         if (!obj.sel) return

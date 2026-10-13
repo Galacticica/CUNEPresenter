@@ -13,6 +13,7 @@
     import { clone } from "../helpers/array"
     import { defaultLayers, getCurrentStyle, getMetadata, getOutputLines, getOutputTransitions, getResolution, getSlideFilter, getStyleTemplate, setTemplateStyle } from "../helpers/output"
     import { _show } from "../helpers/shows"
+    import { getEffectiveOutputLineLimit } from "../helpers/outputLineLimit"
     import Image from "../media/Image.svelte"
     import Zoomed from "../slide/Zoomed.svelte"
     import { updateAnimation } from "./animation"
@@ -225,10 +226,11 @@
     const updateLinesTime = $currentWindow === "output" ? 50 : 10
     let linesTimeout: NodeJS.Timeout | null = null
     $: if (currentLineId) {
+        const lineLimit = getEffectiveOutputLineLimit($showsCache[currentLineId], $categories[$showsCache[currentLineId]?.category || ""], currentStyle.lines)
         // don't update until all outputs has updated their "line" value
         if (linesTimeout) clearTimeout(linesTimeout)
         linesTimeout = setTimeout(() => {
-            lines[currentLineId] = getOutputLines(slide!, currentStyle.lines) // , currentSlide
+            lines[currentLineId] = getOutputLines(slide!, lineLimit) // , currentSlide
         }, updateLinesTime)
     }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { actions, activePage, activePopup, activeShow, activeTimers, contextActive, groups, guideActive, outLocked, outputs, overlayTimers, playingAudio, playingMetronome, resized, slideTimers, special } from "../../../stores"
+    import { actions, activePage, activePopup, activeShow, activeTimers, categories, contextActive, groups, guideActive, outLocked, outputs, overlayTimers, playingAudio, playingMetronome, resized, showsCache, slideTimers, special } from "../../../stores"
+    import { getEffectiveOutputLineLimit } from "../../helpers/outputLineLimit"
     import { DEFAULT_WIDTH, isDarkTheme } from "../../../utils/common"
     import { formatSearch } from "../../../utils/search"
     import { getNormalizedKey, previewCtrlShortcuts, previewShortcuts } from "../../../utils/shortcuts"
@@ -228,7 +229,8 @@
     $: ref = outSlide ? (outSlide?.id === "temp" ? [{ temp: true, items: outSlide.tempItems, id: "" }] : _show(outSlide.id).layouts([outSlide.layout]).ref()[0] || []) : []
     let linesIndex: null | number = null
     let maxLines: null | number = null
-    $: amountOfLinesToShow = getFewestOutputLines($outputs)
+    $: bypassLineLimit = getEffectiveOutputLineLimit($showsCache[outSlide?.id || ""], $categories[$showsCache[outSlide?.id || ""]?.category || ""], 1) === 0
+    $: amountOfLinesToShow = bypassLineLimit ? 0 : getFewestOutputLines($outputs, outSlide?.id)
     $: showSlide = outSlide?.index !== undefined && ref ? _show(outSlide.id).slides([ref[outSlide.index]?.id]).get()?.[0] : null
     $: slideLines = showSlide ? getItemWithMostLines(showSlide) : null
     $: maxLines = slideLines && amountOfLinesToShow && amountOfLinesToShow < slideLines ? Math.ceil(slideLines / amountOfLinesToShow) : null

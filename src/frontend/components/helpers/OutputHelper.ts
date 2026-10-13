@@ -410,7 +410,7 @@ export class OutputHelper {
     }
 
     private static checkStyleLines(data: OutSlide, slide: Slide | null) {
-        const amountOfLinesToShow = getFewestOutputLines()
+        const amountOfLinesToShow = getFewestOutputLines(undefined, data.id)
         const linesIndex = amountOfLinesToShow ? data.line || 0 : null
         const slideLines = slide ? getItemWithMostLines(slide) : null
 
@@ -419,7 +419,7 @@ export class OutputHelper {
         const hasEnded = slideLines === null || linesIndex === null ? true : linesIndex + amountOfLinesToShow >= slideLines
         const _hasEnded = linesIndex === null || linesIndex < 1
 
-        const maxIndex = slideLines ? amountOfLinesToShow * Math.ceil(slideLines / amountOfLinesToShow) : 0
+        const maxIndex = slideLines && amountOfLinesToShow ? amountOfLinesToShow * Math.ceil(slideLines / amountOfLinesToShow) : 0
         const lastLine = maxIndex ? maxIndex - amountOfLinesToShow : 0
 
         return { hasEnded, nextLine, _hasEnded, previousLine, lastLine }

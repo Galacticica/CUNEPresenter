@@ -549,7 +549,7 @@ export class PowerPointPackage {
     }
 
     private shapeToItem(
-        shape: { name: string; shape: Shape; pos: Position; layoutShape: Shape; masterShape: Shape; txStyles: any[]; isDecoration?: boolean; part?: OpcPart },
+        shape: { name: string; shape: Shape; pos: Position; layoutShape: Shape; masterShape: Shape; txStyles: any[]; textScale?: { x: number; y: number }; isDecoration?: boolean; part?: OpcPart },
         ctx: {
             presentation: PresentationPart
             slide: SlidePart
@@ -564,6 +564,12 @@ export class PowerPointPackage {
     ): Item | null {
         if (!Array.isArray(shape.shape)) return null
 
+        const textScale = { x: ctx.scale.x * (shape.textScale?.x ?? 1), y: ctx.scale.y * (shape.textScale?.y ?? 1), factor: 1 }
+        textScale.factor = (textScale.x + textScale.y) / 2
+        const bodyPrs = [getProperties(shape.shape, "p:txBody", "a:bodyPr"), getProperties(shape.layoutShape, "p:txBody", "a:bodyPr"), getProperties(shape.masterShape, "p:txBody", "a:bodyPr")]
+        const autofit = bodyPrs.flatMap((properties) => properties.filter((node) => ["a:noAutofit", "a:spAutoFit", "a:normAutofit"].some((tag) => tag in node)))[0]
+        const fontScale = autofit?.["a:normAutofit"] ? parseDrawingPercentage(autofit[":@"]?.fontScale, 1) : 1
+
         // convert size from 100ths of points to pixels
         function ptsToPx(size: number | string) {
             if (isNaN(Number(size))) return 0
@@ -572,7 +578,7 @@ export class PowerPointPackage {
             const dpi = 96
             const px = (points * dpi) / 72
 
-            return round(px * ctx.scale.factor)
+            return round(px * textScale.factor)
         }
 
         // get layout/master fallback style
@@ -642,22 +648,27 @@ export class PowerPointPackage {
         }
 
         function getRStyle(r: any[], pPr: any, pPrL: any, pPrM: any, tx: any, parentRuns: any[] = []) {
-            let rPr = getValue(r, "a:rPr")
-            if (!rPr.length) rPr = getValue(r, "a:endParaRPr")
+            let rPr = getProperties(r, "a:rPr")
+            if (!rPr.length) rPr = getProperties(r, "a:endParaRPr")
+
+            // Paragraph defaults already include the local list, layout, master and presentation cascade.
+            pPrL = pPr
+            pPrM = []
+            tx = []
 
             // a:hlinkClick
 
             // getPrioritizedStyle(rPr, pPrL, pPrM, tx, "a:rFonts", "a:ascii") ||
             const typeface = getTypeface(getPrioritizedStyle(rPr, pPrL, pPrM, tx, "typeface", "a:latin")) || getTypeface(getAttribute(pPr, "typeface", "a:latin"))
-            const fontSizePx = ptsToPx(getPrioritizedStyle(r, pPrL, pPrM, tx, "sz")) || ptsToPx(getAttribute(pPr, "sz", "a:defRPr")) || 24
-            const letterSpacing = ptsToPx(getPrioritizedStyle(r, pPrL, pPrM, tx, "spc")) || ptsToPx(getAttribute(pPr, "spc", "a:defRPr"))
+            const fontSizePx = (ptsToPx(getPrioritizedStyle(rPr, pPrL, pPrM, tx, "sz")) || 24 * textScale.factor) * fontScale
+            const letterSpacing = ptsToPx(getPrioritizedStyle(rPr, pPrL, pPrM, tx, "spc"))
 
-            const cap = getPrioritizedStyle(r, pPrL, pPrM, tx, "cap") || getAttribute(pPr, "cap", "a:defRPr") || "none"
+            const cap = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "cap") || "none"
 
-            const isBold = (getPrioritizedStyle(r, pPrL, pPrM, tx, "b") || getAttribute(pPr, "b", "a:defRPr")) === "1"
-            const isItalic = (getPrioritizedStyle(r, pPrL, pPrM, tx, "i") || getAttribute(pPr, "i", "a:defRPr")) === "1"
-            const underline = getPrioritizedStyle(r, pPrL, pPrM, tx, "u") || getAttribute(pPr, "u", "a:defRPr")
-            const isStrikethrough = (getPrioritizedStyle(r, pPrL, pPrM, tx, "strike") || getAttribute(pPr, "strike", "a:defRPr")) === "1"
+            const isBold = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "b") === "1"
+            const isItalic = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "i") === "1"
+            const underline = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "u")
+            const isStrikethrough = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "strike") === "1"
 
             const colorFills = [getValue(rPr, "a:solidFill"), getValue(pPr, "a:defRPr", "a:solidFill"), ...parentRuns, getValue(pPrL, "a:defRPr", "a:solidFill"), getValue(pPrM, "a:defRPr", "a:solidFill"), getValue(tx, "a:defRPr", "a:solidFill"), getValue(tx, "a:solidFill"), getValue(ctx.colors, "a:tx1")]
             const color = colorFills.map((f) => resolveColor(f, ctx.colors)).find(Boolean) || ""
@@ -672,14 +683,14 @@ export class PowerPointPackage {
             let shadowVal = getShadowStyle(rPr, pPrL, pPrM, tx)
 
             // raised text
-            const baseline = getAttribute(r, "baseline") || "0"
+            const baseline = getPrioritizedStyle(rPr, pPrL, pPrM, tx, "baseline") || "0"
             // const subscript = getAttribute(rPr, "val", "a:sub") === "1"
             // const superscript = getAttribute(rPr, "val", "a:sup") === "1"
-            let blEm = Number(baseline) / 100000
+            const baselineOffset = parseDrawingPercentage(baseline)
 
             let style = ""
             style += `font-family: ${typeface ? typeface + ", " : ""}Calibri;`
-            style += `font-size: ${fontSizePx * (blEm ? 0.6 : 1)}px;`
+            style += `font-size: ${fontSizePx * (baselineOffset ? 0.6 : 1)}px;`
             if (letterSpacing) style += `letter-spacing: ${letterSpacing}px;`
             if (isBold) style += "font-weight: bold;"
             if (isItalic) style += "font-style: italic;"
@@ -688,7 +699,7 @@ export class PowerPointPackage {
             if (isStrikethrough) style += "text-decoration: line-through;"
             style += `color: ${color || "#000000"};`
             if (shadowVal) style += shadowVal
-            if (blEm) style += `vertical-align: calc(${blEm}em + 10px);`
+            if (baselineOffset) style += `vertical-align: ${round(fontSizePx * baselineOffset)}px;`
             if (lnWPx) style += `-webkit-text-stroke-width: ${lnWPx + 0.8}px;paint-order: normal;`
             if (lnColor) style += `-webkit-text-stroke-color: ${lnColor};`
             if (cap === "all") style += "text-transform: uppercase;"
@@ -710,7 +721,7 @@ export class PowerPointPackage {
                 const spacing = getAttribute(lnSpc, "val", "a:spcPct") || "100000"
                 // 100000 = 100% = apprx 1.2em
                 // spacing to em
-                const lnEm = (Number(spacing) / 100000) * 1.2
+                const lnEm = parseDrawingPercentage(spacing, 1) * 1.2
                 if (lnEm > 0) style += `line-height: ${lnEm}em;`
             } else {
                 const lnPx = ptsToPx(getAttribute(lnSpc, "val", "a:spcPts"))
@@ -721,7 +732,7 @@ export class PowerPointPackage {
             function getSpace(tag: "a:spcBef" | "a:spcAft") {
                 const spc = getValue(pPr, tag).length ? getValue(pPr, tag) : getValue(pPrL, tag).length ? getValue(pPrL, tag) : getValue(pPrM, tag)
                 if (getAttribute(spc, "val", "a:spcPct")) {
-                    const pct = (Number(getAttribute(spc, "val", "a:spcPct") || "0") / 100000) * 1.2
+                    const pct = parseDrawingPercentage(getAttribute(spc, "val", "a:spcPct")) * 1.2
                     return pct > 0 ? `${round(pct, 2)}em` : ""
                 }
                 const pts = ptsToPx(getAttribute(spc, "val", "a:spcPts"))
@@ -736,6 +747,7 @@ export class PowerPointPackage {
         }
 
         function getBullet(pPr: any, pPrL: any, pPrM: any, tx: any, firstRun: any[]) {
+            if (pPr.some((node) => node["a:buNone"])) return null
             const buChar = getPrioritizedAttribute("char", "a:buChar")
             const autoNum = getPrioritizedAttribute("type", "a:buAutoNum")
             if (!buChar && !autoNum) return null
@@ -744,7 +756,10 @@ export class PowerPointPackage {
                 return getAttribute(pPr, key, tagName) || getAttribute(pPrL, key, tagName) || getAttribute(pPrM, key, tagName)
             }
 
-            const firstRunRPr = getValue(firstRun, "a:rPr").length ? getValue(firstRun, "a:rPr") : firstRun
+            pPrL = pPr
+            pPrM = []
+            tx = []
+            const firstRunRPr = getProperties(firstRun, "a:rPr").length ? getProperties(firstRun, "a:rPr") : firstRun
             const customBuFont = getPrioritizedAttribute("typeface", "a:buFont")
             const defaultTypeface = getTypeface(getPrioritizedStyle(firstRunRPr, pPrL, pPrM, tx, "typeface", "a:latin"))
             const buFont = customBuFont ? getTypeface(customBuFont) : defaultTypeface
@@ -755,21 +770,18 @@ export class PowerPointPackage {
 
             const buSzPts = getPrioritizedAttribute("val", "a:buSzPts")
             const buSzPct = getPrioritizedAttribute("val", "a:buSzPct")
-            const defaultFontSizePx = ptsToPx(getPrioritizedStyle(firstRun, pPrL, pPrM, tx, "sz")) || 24
+            const defaultFontSizePx = (ptsToPx(getPrioritizedStyle(firstRunRPr, pPrL, pPrM, tx, "sz")) || 24 * textScale.factor) * fontScale
             let buFontSizePx = defaultFontSizePx
-            if (buSzPts) buFontSizePx = ptsToPx(buSzPts) || defaultFontSizePx
-            else if (buSzPct) buFontSizePx = round(defaultFontSizePx * (Number(buSzPct) / 100000))
+            if (buSzPts) buFontSizePx = ptsToPx(buSzPts) * fontScale || defaultFontSizePx
+            else if (buSzPct) buFontSizePx = round(defaultFontSizePx * parseDrawingPercentage(buSzPct, 1))
 
-            const marL = Number(getPrioritizedAttribute("marL") || "0")
             const indent = Number(getPrioritizedAttribute("indent") || "0")
-            const padLeft = marL ? round(emuToPixels(Math.max(0, marL + indent)) * (ctx.scale.x ?? 1)) : 0
-            const rawPadRight = indent < 0 ? round(emuToPixels(Math.abs(indent)) * (ctx.scale.x ?? 1)) : 16
-            const padRight = !rawPadRight || rawPadRight < 8 ? 16 : rawPadRight
+            const markerWidth = indent < 0 ? round(emuToPixels(-indent) * textScale.x) : null
 
-            let style = `font-family: ${buFont ? buFont + ", " : ""}Calibri;font-size: ${buFontSizePx}px;color: ${buClr};padding-left: ${padLeft}px;padding-right: ${padRight}px;`
+            let style = `font-family: ${buFont ? buFont + ", " : ""}Calibri;font-size: ${buFontSizePx}px;color: ${buClr};text-indent: 0;display: inline-block;${markerWidth !== null ? `width: ${markerWidth}px;` : `padding-right: ${round(buFontSizePx * 0.5)}px;`}`
             style += getShadowStyle(firstRunRPr, pPrL, pPrM, tx)
-            if (getPrioritizedStyle(firstRun, pPrL, pPrM, tx, "b") === "1") style += "font-weight: bold;"
-            if (getPrioritizedStyle(firstRun, pPrL, pPrM, tx, "i") === "1") style += "font-style: italic;"
+            if (getPrioritizedStyle(firstRunRPr, pPrL, pPrM, tx, "b") === "1") style += "font-weight: bold;"
+            if (getPrioritizedStyle(firstRunRPr, pPrL, pPrM, tx, "i") === "1") style += "font-style: italic;"
 
             const startAt = Number(getPrioritizedAttribute("startAt", "a:buAutoNum") || "1")
 
@@ -786,13 +798,31 @@ export class PowerPointPackage {
             let hasText = false
             return p
                 .map((line, i) => {
-                    const pPr = getValue(line, "a:pPr")
-                    const lvl = Number(getAttribute(line, "lvl", "a:pPr") || getAttribute(pPr, "lvl") || getAttribute(line, "lvl") || "0") + 1
+                    const directPPr = getProperties(line, "a:pPr")
+                    const lvl = Number(getAttribute(directPPr, "lvl") || "0") + 1
 
-                    const pPrL = getValue(pL[i] ? pL[i] : pL[0], "a:lstStyle", `a:lvl${lvl}pPr`)
-                    const pPrM = getValue(pM[i] ? pM[i] : pM[0], "a:lstStyle", `a:lvl${lvl}pPr`)
-                    let tx = getValue(shape.txStyles, `a:lvl${lvl}pPr`)
-                    if (!tx.length) tx = getValue(shape.txStyles, "a:defPPr")
+                    const body = getValue(n, "p:txBody")
+                    const layoutBody = pL[0] || []
+                    const masterBody = pM[0] || []
+                    const pPrL = getProperties(layoutBody, "a:lstStyle", `a:lvl${lvl}pPr`)
+                    const pPrM = getProperties(masterBody, "a:lstStyle", `a:lvl${lvl}pPr`)
+                    const tx = getProperties(shape.txStyles, `a:lvl${lvl}pPr`)
+                    const presentationDefaults = getValue(ctx.presentation.json, "p:presentation", "p:defaultTextStyle")
+                    const pPr = mergeProperties([
+                        directPPr,
+                        getProperties(body, "a:lstStyle", `a:lvl${lvl}pPr`),
+                        getProperties(body, "a:lstStyle", "a:defPPr"),
+                        getPlaceholderParagraphDefaults(layoutBody, lvl),
+                        pPrL,
+                        getProperties(layoutBody, "a:lstStyle", "a:defPPr"),
+                        getPlaceholderParagraphDefaults(masterBody, lvl),
+                        pPrM,
+                        getProperties(masterBody, "a:lstStyle", "a:defPPr"),
+                        tx,
+                        getProperties(shape.txStyles, "a:defPPr"),
+                        getProperties(presentationDefaults, `a:lvl${lvl}pPr`),
+                        getProperties(presentationDefaults, "a:defPPr")
+                    ])
 
                     const parentRuns = [
                         getValue(shape.layoutShape, "p:txBody", "a:p", "a:r", "a:rPr", "a:solidFill"),
@@ -803,7 +833,7 @@ export class PowerPointPackage {
                         getValue(shape.masterShape, "p:txBody", "a:p", "a:endParaRPr", "a:solidFill")
                     ].filter((f) => f.length)
 
-                    const sharedStyle = getSharedStyle(pPr, pPrL, pPrM)
+                    const sharedStyle = getSharedStyle(pPr, [], [])
                     const firstRun = line.find((a: any) => a["a:r"])?.["a:r"] || line.find((a: any) => a["a:endParaRPr"]) || []
                     const bullet = getBullet(pPr, pPrL, pPrM, tx, firstRun)
 
@@ -820,7 +850,8 @@ export class PowerPointPackage {
                             rs.push(br)
                         }
                     })
-                    const algn = getAttribute(line, "algn", "a:pPr") || getAttribute(pPr, "algn") || getAttribute(pPrL, "algn") || getAttribute(pPrM, "algn") || getAttribute(tx, "algn") || (svgText ? "ctr" : "")
+                    const algn = getAttribute(pPr, "algn") || (svgText ? "ctr" : "")
+                    const paragraphIndent = `padding-left: ${round(emuToPixels(getAttribute(pPr, "marL") || "0") * textScale.x)}px;padding-right: ${round(emuToPixels(getAttribute(pPr, "marR") || "0") * textScale.x)}px;text-indent: ${round(emuToPixels(getAttribute(pPr, "indent") || "0") * textScale.x)}px;box-sizing: border-box;text-wrap: wrap;`
 
                     if (i === 0) hasText = false
                     if (rs.length) hasText = true
@@ -902,7 +933,7 @@ export class PowerPointPackage {
                     text = text.filter((a) => typeof a.value === "string")
 
                     return {
-                        align: getAlignment(algn),
+                        align: getAlignment(algn) + paragraphIndent,
                         text
                     }
                 })
@@ -937,14 +968,12 @@ export class PowerPointPackage {
             style
         }
 
-        const bodyPrs = [getValue(shape.shape, "p:txBody", "a:bodyPr"), getValue(shape.layoutShape, "p:txBody", "a:bodyPr"), getValue(shape.masterShape, "p:txBody", "a:bodyPr")]
-
         // auto size (shrinkToFit changes the font size even when it's not overflowing)
         // const hasNormAutofit = bodyPrs.some((b) => b?.some?.((n: any) => n.hasOwnProperty("a:normAutofit")))
         // const hasSpAutoFit = bodyPrs.some((b) => b?.some?.((n: any) => n.hasOwnProperty("a:spAutoFit")))
         // if (hasNormAutofit || hasSpAutoFit) item.textFit = "shrinkToFit"
 
-        const itemAlign = getAttribute(shape.shape, "anchor", "p:txBody") || getAttribute(getValue(shape.shape, "p:txBody"), "anchor", "a:bodyPr") || getAttribute(getValue(shape.layoutShape, "p:txBody"), "anchor", "a:bodyPr") || getAttribute(getValue(shape.masterShape, "p:txBody"), "anchor", "a:bodyPr") || ""
+        const itemAlign = bodyPrs.map((properties) => getAttribute(properties, "anchor")).find((value) => value !== "") || ""
         item.align = getItemAlign(itemAlign) + "overflow: visible;" // PPT shows overflow text
         function getItemAlign(anchor: string) {
             if (anchor === "ctr") return "" // FreeShow default is center alignment
@@ -1266,7 +1295,7 @@ export class PowerPointPackage {
             const emu = raw != null && !isNaN(Number(raw)) ? Number(raw) : isText ? (svgText && (key === "tIns" || key === "bIns") ? 0 : defEmu) : 0
             return round(emuToPixels(emu) * scale)
         }
-        item.style += `padding: ${getPad("tIns", 36000, ctx.scale.y)}px ${getPad("rIns", 72000, ctx.scale.x)}px ${getPad("bIns", 36000, ctx.scale.y)}px ${getPad("lIns", 72000, ctx.scale.x)}px;`
+        item.style += `box-sizing: border-box;padding: ${getPad("tIns", 36000, textScale.y)}px ${getPad("rIns", 72000, textScale.x)}px ${getPad("bIns", 36000, textScale.y)}px ${getPad("lIns", 72000, textScale.x)}px;`
 
         if (bgColor && !svgShape && !svgText) item.style += `background-color: ${bgColor};`
 
@@ -1313,7 +1342,7 @@ export class PowerPointPackage {
 
         // position
 
-        let pos = shape.pos
+        let pos = { ...shape.pos }
         if (pos.left) pos.left *= ctx.scale.x ?? 1
         if (pos.top) pos.top *= ctx.scale.y ?? 1
         if (pos.width) pos.width *= ctx.scale.x ?? 1
@@ -1401,17 +1430,28 @@ export class PowerPointPackage {
 }
 
 /////////
+// DrawingML accepts both "25000" and "25%" for percentage values.
+function parseDrawingPercentage(value: string | number | undefined, fallback = 0): number {
+    if (value === undefined || value === "") return fallback
+    const text = String(value).trim()
+    const percentage = text.endsWith("%")
+    const number = Number(percentage ? text.slice(0, -1) : text)
+    return Number.isFinite(number) ? number / (percentage ? 100 : 100000) : fallback
+}
+
 type Position = { left: number; top: number; width: number; height: number }
-function getPosition(psp: any, scale: { x: number; y: number; factor: number } | null = null) {
+function getPosition(psp: any, scale: { x: number; y: number; factor: number } | null = null, fallbacks: Shape[] = []) {
     // common path: p:spPr -> a:xfrm -> a:off/@x,y and a:ext/@cx,cy
     let spPr = getValue(psp, "p:spPr")
     if (!spPr.length) spPr = getValue(psp, "p:grpSpPr")
     const xfrm = getValue(spPr, "a:xfrm")
 
-    const ox = getAttribute(xfrm, "x", "a:off") || "0"
-    const oy = getAttribute(xfrm, "y", "a:off") || "0"
-    const cx = getAttribute(xfrm, "cx", "a:ext") || "0"
-    const cy = getAttribute(xfrm, "cy", "a:ext") || "0"
+    const transforms = [xfrm, ...fallbacks.map((node) => getValue(node, "p:spPr", "a:xfrm"))]
+    const inherited = (key: string, tag: string) => transforms.map((node) => getAttribute(node, key, tag)).find((value) => value !== "") || "0"
+    const ox = inherited("x", "a:off")
+    const oy = inherited("y", "a:off")
+    const cx = inherited("cx", "a:ext")
+    const cy = inherited("cy", "a:ext")
 
     return {
         left: round(emuToPixels(ox) * (scale?.x ?? 1)),
@@ -1551,6 +1591,14 @@ type TempShape = {
     hidden?: boolean
 
     pos: Position
+    parentPos: Position | null
+    child: Position | null
+}
+function applyGroupPosition(pos: Position, parentPos: Position | null, child: Position | null): Position {
+    if (!parentPos) return pos
+    const scaleX = child?.width ? parentPos.width / child.width : 1
+    const scaleY = child?.height ? parentPos.height / child.height : 1
+    return { left: parentPos.left + (pos.left - (child?.left || 0)) * scaleX, top: parentPos.top + (pos.top - (child?.top || 0)) * scaleY, width: pos.width * scaleX, height: pos.height * scaleY }
 }
 function getTempShape(data: { shape: Shape; parentPos: Position | null; child: Position | null }): TempShape {
     const shape = getShape(data.shape)
@@ -1559,20 +1607,7 @@ function getTempShape(data: { shape: Shape; parentPos: Position | null; child: P
     const phType = getAttribute(placeholder, "type", "p:ph")
     const phIdx = getAttribute(placeholder, "idx", "p:ph")
 
-    const pos = getPosition(shape.node)
-    if (data.parentPos) {
-        pos.left += data.parentPos.left
-        pos.top += data.parentPos.top
-
-        if (data.child) {
-            pos.left += data.child.left
-            pos.top += data.child.top
-            const scaleX = data.child.width ? data.parentPos.width / data.child.width : 1
-            const scaleY = data.child.height ? data.parentPos.height / data.child.height : 1
-            pos.width *= scaleX
-            pos.height *= scaleY
-        }
-    }
+    const pos = applyGroupPosition(getPosition(shape.node), data.parentPos, data.child)
 
     return {
         id: findShapeId(shape) || "",
@@ -1582,7 +1617,9 @@ function getTempShape(data: { shape: Shape; parentPos: Position | null; child: P
         phType,
         phIdx,
         hidden: getAttribute(getValue(shape.node, "p:spPr"), "hidden") === "1", // ?
-        pos
+        pos,
+        parentPos: data.parentPos,
+        child: data.child
     }
 }
 type PhKey = string // "type|idx"
@@ -1620,16 +1657,12 @@ function unpackGroups(shapes: Shape[], parentPos: Position | null = null, child:
     for (const node of shapes) {
         const shape = getShape(node)
         if (shape.name === "p:grpSp") {
-            const groupPos = getPosition(shape.node)
-            if (parentPos) {
-                groupPos.left += parentPos.left
-                groupPos.top += parentPos.top
-            }
+            const groupPos = applyGroupPosition(getPosition(shape.node), parentPos, child)
             const chOff = getAttributes(getValue(shape.node, "p:grpSpPr", "a:xfrm"), "a:chOff")
             const chExt = getAttributes(getValue(shape.node, "p:grpSpPr", "a:xfrm"), "a:chExt")
-            const child = { left: round(emuToPixels(chOff?.x)), top: round(emuToPixels(chOff?.y)), width: round(emuToPixels(chExt?.cx)), height: round(emuToPixels(chExt?.cy)) }
+            const groupChild = { left: round(emuToPixels(chOff?.x)), top: round(emuToPixels(chOff?.y)), width: round(emuToPixels(chExt?.cx)), height: round(emuToPixels(chExt?.cy)) }
 
-            const unpacked = unpackGroups(shape.node, groupPos, child)
+            const unpacked = unpackGroups(shape.node, groupPos, groupChild)
             out.push(...unpacked)
         } else if (validShapes.includes(shape.name)) {
             out.push({ shape: node, parentPos, child })
@@ -1673,7 +1706,7 @@ function buildRenderList(masterShapes: Shape[], layoutShapes: Shape[], slideShap
         }
     }
 
-    const render: { name: string; shape: Shape; pos: Position; layoutShape: Shape; masterShape: Shape; txStyles: any[]; isDecoration?: boolean; part?: OpcPart }[] = []
+    const render: { name: string; shape: Shape; pos: Position; layoutShape: Shape; masterShape: Shape; txStyles: any[]; textScale?: { x: number; y: number }; isDecoration?: boolean; part?: OpcPart }[] = []
 
     for (const s of tempSlideShapes) {
         if (!s.hidden) {
@@ -1684,7 +1717,8 @@ function buildRenderList(masterShapes: Shape[], layoutShapes: Shape[], slideShap
             render.push({
                 name: s.name,
                 shape: s.node,
-                pos: s.pos,
+                pos: applyGroupPosition(getPosition(s.node, null, [matchedLayout?.node || [], matchedMaster?.node || []]), s.parentPos, s.child),
+                textScale: { x: s.child?.width && s.parentPos ? s.parentPos.width / s.child.width : 1, y: s.child?.height && s.parentPos ? s.parentPos.height / s.child.height : 1 },
                 layoutShape: matchedLayout ? matchedLayout.node : [],
                 masterShape: matchedMaster ? matchedMaster.node : [],
                 txStyles: getTxStyles(effectivePhType),
@@ -1701,7 +1735,8 @@ function buildRenderList(masterShapes: Shape[], layoutShapes: Shape[], slideShap
             render.push({
                 name: s.name,
                 shape: s.node,
-                pos: s.pos,
+                pos: applyGroupPosition(getPosition(s.node, null, [matchedMaster?.node || []]), s.parentPos, s.child),
+                textScale: { x: s.child?.width && s.parentPos ? s.parentPos.width / s.child.width : 1, y: s.child?.height && s.parentPos ? s.parentPos.height / s.child.height : 1 },
                 layoutShape: [],
                 masterShape: matchedMaster ? matchedMaster.node : [],
                 txStyles: getTxStyles(effectivePhType),
@@ -1939,6 +1974,50 @@ function getValue(data: any[], ...path: string[]): any[] {
     }
 
     return current
+}
+
+// Keep the owning element's attributes alongside its children. getValue intentionally
+// returns only children, which otherwise loses paragraph margins and placeholder defaults.
+function getProperties(data: any[], ...path: string[]): any[] {
+    const tag = path.pop()!
+    const parent = path.length ? getValue(data, ...path) : data
+    const node = parent?.find?.((value) => value[tag] !== undefined)
+    if (!node) return []
+    return [...(Array.isArray(node[tag]) ? node[tag] : []), { ":@": { ...node[":@"] } }]
+}
+
+function mergeProperties(sources: any[][]): any[] {
+    const attributes: Record<string, any> = {}
+    const children = new Map<string, any>()
+    const bulletChoices = ["a:buNone", "a:buChar", "a:buAutoNum"]
+    for (const source of [...sources].reverse()) {
+        for (const node of source) {
+            const tag = Object.keys(node).find((key) => key !== ":@")
+            if (!tag) {
+                Object.assign(attributes, node[":@"] || {})
+                continue
+            }
+            if (bulletChoices.includes(tag)) bulletChoices.forEach((key) => children.delete(key))
+            const previous = children.get(tag)
+            if (tag === "a:defRPr" && previous) {
+                const merged = mergeProperties([getProperties([node], tag), getProperties([previous], tag)])
+                children.set(tag, { [tag]: merged.filter((entry) => Object.keys(entry).some((key) => key !== ":@")), ":@": merged.find((entry) => Object.keys(entry).length === 1 && entry[":@"])?.[":@"] || {} })
+            } else children.set(tag, node)
+        }
+    }
+    return [...children.values(), { ":@": attributes }]
+}
+
+function getPlaceholderParagraphDefaults(body: any[], level: number): any[] {
+    const paragraph = getValues(body, "a:p").find((line) => Number(getAttribute(line, "lvl", "a:pPr") || "0") === level - 1)
+    if (!paragraph) return []
+    const paragraphProperties = getProperties(paragraph, "a:pPr")
+    const firstRun = getValue(paragraph, "a:r")
+    const runProperties = getProperties(firstRun, "a:rPr")
+    const endProperties = getProperties(paragraph, "a:endParaRPr")
+    const defaults = mergeProperties([runProperties, endProperties])
+    const runDefault = { "a:defRPr": defaults.filter((entry) => Object.keys(entry).some((key) => key !== ":@")), ":@": defaults.find((entry) => Object.keys(entry).length === 1 && entry[":@"])?.[":@"] || {} }
+    return mergeProperties([paragraphProperties, [runDefault]])
 }
 
 function getValues(data: any[], ...path: string[]): any[][] {

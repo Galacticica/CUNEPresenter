@@ -10,6 +10,7 @@
     import { encodeFilePath, getExtension } from "../helpers/media"
     import { getActiveOutputs, refreshOut, setOutput } from "../helpers/output"
     import { getCachedShow } from "../helpers/show"
+    import { getEffectiveOutputLineLimit } from "../helpers/outputLineLimit"
     import { checkActionTrigger, getFewestOutputLines, getFewestOutputLinesReveal, getItemWithMostLines, updateOut } from "../helpers/showActions"
     import { _show } from "../helpers/shows"
     import T from "../helpers/T.svelte"
@@ -27,6 +28,7 @@
     export let projectIndex = -1
 
     $: currentShow = $showsCache[showId]
+    $: bypassLineLimit = getEffectiveOutputLineLimit(currentShow, $categories[currentShow?.category || ""], 1) === 0
     $: activeLayout = layout || $showsCache[showId]?.settings?.activeLayout
     $: layoutSlides = currentShow ? getCachedShow(showId, activeLayout, $cachedShowsData)?.layout || [] : []
 
@@ -109,7 +111,7 @@
             let outputId = getActiveOutputs($outputs, true, true, true)[0]
             let currentOutput = $outputs[outputId] || {}
             let outSlide = currentOutput.out?.slide || null
-            let amountOfLinesToShow = getFewestOutputLines()
+            let amountOfLinesToShow = getFewestOutputLines(undefined, showId)
             let showSlide = _show(showId).slides([slideRef[index]?.id]).get()?.[0]
             let line = 0
             if (outSlide && outSlide.id === showId && outSlide.layout === activeLayout && outSlide.index === index && amountOfLinesToShow > 0) {
@@ -309,7 +311,7 @@
 
             // get progress of current line division
             // let amountOfLinesToShow: number = currentStyle.lines !== undefined ? Number(currentStyle.lines) : 0
-            let amountOfLinesToShow: number = getFewestOutputLines($outputs)
+            let amountOfLinesToShow: number = bypassLineLimit ? 0 : getFewestOutputLines($outputs, showId)
             let lineIndex = 0
             let maxLines = 0
             if (amountOfLinesToShow > 0) {

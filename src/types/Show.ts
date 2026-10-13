@@ -32,6 +32,8 @@ export interface Show {
         // resolution?: Resolution
         template: null | ID
         bypassOutputTemplate?: boolean
+        bypassOutputLineLimit?: boolean
+        outputLineLimit?: number // custom per-show limit; absent means inherit the category/output default
         customAction?: string // special custom trigger
         customFonts?: CustomFont[]
     }

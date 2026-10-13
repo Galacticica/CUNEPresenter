@@ -93,6 +93,26 @@
             enabled = !!$showsCache[showId]?.settings?.bypassOutputTemplate
             if (showId && !$showsCache[showId]) loadShows([showId]).then(() => (enabled = !!$showsCache[showId]?.settings?.bypassOutputTemplate))
         },
+        bypass_line_limit_show: () => {
+            const showId = $selected.data[0]?.id
+            const show = $showsCache[showId] || $shows[showId]
+            const access = getAccess("shows")
+            disabled = $selected.data.length !== 1 || !show || !!show.locked || access.global === "read" || access[show?.category || ""] === "read"
+            enabled = !!$showsCache[showId]?.settings?.bypassOutputLineLimit
+            if (showId && !$showsCache[showId]) loadShows([showId]).then(() => (enabled = !!$showsCache[showId]?.settings?.bypassOutputLineLimit))
+        },
+        show_line_limit: () => {
+            const showId = $selected.data[0]?.id
+            const show = $showsCache[showId] || $shows[showId]
+            const access = getAccess("shows")
+            disabled = $selected.data.length !== 1 || !show || !!show.locked || access.global === "read" || access[show?.category || ""] === "read"
+        },
+        bypass_line_limit_category: () => {
+            const categoryId = $selected.data[0]
+            const access = getAccess("shows")
+            disabled = $selected.data.length !== 1 || !$categories[categoryId] || access.global === "read" || access[categoryId] === "read"
+            enabled = !!$categories[categoryId]?.bypassOutputLineLimit
+        },
         private: () => {
             let show = $shows[$selected.data[0]?.id]
             if (!show) return

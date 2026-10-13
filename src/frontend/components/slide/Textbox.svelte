@@ -5,6 +5,7 @@
     import type { Item, Slide, TemplateStyleOverride, Transition } from "../../../types/Show"
     import { categories, currentWindow, groups, outputs, overlays, scriptureSettings, showsCache, styles, templates, variables } from "../../stores"
     import { bypassesOutputTemplate } from "../helpers/outputTemplate"
+    import { getEffectiveOutputLineLimit } from "../helpers/outputLineLimit"
     import { wait } from "../../utils/common"
     import { send } from "../../utils/request"
     import autosize from "../edit/scripts/autosize"
@@ -783,7 +784,8 @@
             if (!outSlide) return
 
             const style = $styles[o.style || ""]
-            const amount = style?.lines || 0
+            const show = $showsCache[outSlide.id]
+            const amount = getEffectiveOutputLineLimit(show, $categories[show?.category || ""], style?.lines)
             if (amount === 0) return
 
             const visibleLines = getOutputLines(outSlide, amount)

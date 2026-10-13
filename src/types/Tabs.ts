@@ -19,6 +19,7 @@ export interface Category {
     action?: string // trigger custom action on content presentation
     template?: string // set a custom template all shows within this category will use by default (if no other template is set)
     bypassOutputTemplate?: boolean // use the show's own slide formatting instead of the output template
+    bypassOutputLineLimit?: boolean // show all slide lines instead of applying output line limits
     submenu?: { options: any[] } // open a submenu of options (tags)
     openTrigger?: Function // trigger a custom function
 }
