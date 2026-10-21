@@ -7,7 +7,7 @@
     import { getItemText } from "../../edit/scripts/textStyle"
     import { clone } from "../../helpers/array"
     import { loadCustomFonts } from "../../helpers/fonts"
-    import { getStyleTemplate, itemNeedsAutoSize, slideHasAutoSizeItem } from "../../helpers/output"
+    import { getStyleTemplate, itemHasAutoSize, itemNeedsAutoSize, slideHasAutoSizeItem } from "../../helpers/output"
     import Textbox from "../../slide/Textbox.svelte"
     import { SlideTimeline } from "../../timeline/SlideTimeline"
     import SlideItemTransition from "../transitions/SlideItemTransition.svelte"
@@ -68,8 +68,9 @@
         return JSON.stringify(oldItem) === JSON.stringify(newItem)
     }
     // maintain a hidden workload that primes autosize results ahead of the visible reveal
-    let precomputeTargets: { item: Item; index: number; key: string }[] = []
+    let precomputeTargets: { item: Item; index: number; key: string; generation: number }[] = []
     let precomputePending = new Set<string>()
+    let preparedFontSizes: Record<number, number> = {}
 
     const showItemRef = { outputId, slideIndex: outSlide?.index }
     let conditionsUpdater = 0
@@ -96,6 +97,7 @@
         delete newOutSlide.line
         delete newOutSlide.revealCount
         delete newOutSlide.itemClickReveal
+        delete newOutSlide.autoAdvance
         let outSlideString = JSON.stringify(newOutSlide)
         if (outSlideString !== currentOutSlide) currentOutSlide = outSlideString
     }
@@ -124,6 +126,11 @@
     $: if (currentSlideItems !== undefined || currentOutSlide || currentLines) updateItems()
     let timeout: NodeJS.Timeout | null = null
     let updateGeneration = 0
+    onDestroy(() => {
+        updateGeneration++
+        if (timeout) clearTimeout(timeout)
+        onPrecomputeDone = null
+    })
 
     // if anything is outputted & changing to something that's outputted
     let transitioningBetween = false
@@ -133,23 +140,22 @@
     // kick off hidden textbox renders that warm the autosize cache before we flip "show" on
     function scheduleAutoSizePrecompute(items: Item[]) {
         onPrecomputeDone = null
+        preparedFontSizes = {}
         if (preview || !Array.isArray(items) || !items.length) {
             precomputeTargets = []
             precomputePending.clear()
             return
         }
 
-        const targets: { item: Item; index: number; key: string }[] = []
+        const targets: typeof precomputeTargets = []
         const pendingKeys = new Set<string>()
 
         items.forEach((item, index) => {
-            if (!itemNeedsAutoSize(item)) return
+            if (!itemHasAutoSize(item) || ["media", "camera", "icon"].includes(item.type || "")) return
             const key = createAutoSizeKey(item, index)
             if (!key) return
-            if (item.autoFontSize) return // skip entries that already have cached measurements
-
             pendingKeys.add(key)
-            targets.push({ item: clone(item), index, key })
+            targets.push({ item: clone(item), index, key, generation: updateGeneration })
         })
 
         precomputeTargets = targets
@@ -157,9 +163,12 @@
     }
 
     // remove hidden probes once the underlying textbox reports that its autosize cache is hot
-    function handlePrecomputeReady(event: CustomEvent<{ key: string; fontSize: number }>) {
+    function handlePrecomputeReady(event: CustomEvent<{ key: string; fontSize: number }>, generation: number) {
+        if (generation !== updateGeneration) return
         const key = event.detail?.key
         if (!key || !precomputePending.has(key)) return
+        const target = precomputeTargets.find((target) => target.key === key)
+        if (target && Number.isFinite(event.detail.fontSize) && event.detail.fontSize > 0) preparedFontSizes[target.index] = event.detail.fontSize
         precomputePending.delete(key)
         if (!precomputePending.size) {
             precomputeTargets = []
@@ -186,6 +195,8 @@
 
     let isClearingToEmpty = false
     async function updateItems() {
+        const gen = ++updateGeneration
+        if (timeout) clearTimeout(timeout)
         let betweenClearingTransition = transition.between || transition
         if (betweenClearingTransition?.type === "none") betweenClearingTransition.duration = 0
 
@@ -213,6 +224,7 @@
         }
 
         if (isClearingToEmpty) await waitUntilValueIsDefined(() => !isClearingToEmpty, 10, betweenClearingTransition.duration)
+        if (gen !== updateGeneration) return
 
         scheduleAutoSizePrecompute(currentSlide.items)
 
@@ -231,7 +243,7 @@
         if (currentTransition?.type === "none") currentTransition.duration = 0
 
         let currentTransitionDuration = transitionEnabled ? (itemTransitionDuration ?? currentTransition?.duration ?? 0) : 0
-        let waitToShow = currentTransitionDuration * ((currentTransition?.fadeInOffset ?? 50) / 100)
+        let waitToShow = currentTransitionDuration * ((currentTransition?.fadeInOffset ?? 0) / 100)
 
         // Identify items that are unchanged and have no lines content (to keep outputted without fade)
         const newPersistentIndexes: number[] = []
@@ -282,7 +294,27 @@
             return
         }
 
-        const gen = ++updateGeneration
+        // Keep the outgoing slide fully visible while the incoming font sizes
+        // are measured, then start both fades together.
+        if (precomputePending.size) {
+            await new Promise<void>((resolve) => {
+                const safetyTimer = setTimeout(() => {
+                    // A failed probe must not leave a slide permanently pending or
+                    // introduce a blank frame while the visible textbox retries.
+                    if (gen === updateGeneration) {
+                        for (const target of precomputeTargets) {
+                            if (!preparedFontSizes[target.index]) preparedFontSizes[target.index] = target.item.autoFontSize || 100
+                        }
+                    }
+                    resolve()
+                }, 1500)
+                onPrecomputeDone = () => {
+                    clearTimeout(safetyTimer)
+                    resolve()
+                }
+            })
+        }
+        if (gen !== updateGeneration) return
 
         // wait for between to update out transition
         timeout = setTimeout(() => {
@@ -300,10 +332,11 @@
                     slideData: clone(slideData),
                     currentSlide: clone(currentSlide),
                     lines: clone(lines),
-                    currentStyle: clone(currentStyle)
+                    currentStyle: clone(currentStyle),
+                    preparedFontSizes: clone(preparedFontSizes)
                 }
 
-                // wait until half transition duration of previous items have passed as it looks better visually
+                // Honor an explicitly configured fade-in offset; otherwise crossfade immediately.
                 timeout = setTimeout(() => {
                     if (gen !== updateGeneration) return
 
@@ -318,15 +351,7 @@
                         })
                     }
 
-                    if (precomputePending.size) {
-                        const safetyTimer = setTimeout(showSlide, 150)
-                        onPrecomputeDone = () => {
-                            clearTimeout(safetyTimer)
-                            showSlide()
-                        }
-                    } else {
-                        showSlide()
-                    }
+                    showSlide()
                 }, waitToShow)
             })
         })
@@ -450,7 +475,7 @@
             <!-- Transitioning item: render with animation wrapper inside {#key} -->
             {#key show}
                 {#if show}
-                    <SlideItemTransition {preview} {transitionEnabled} {transitioningBetween} {isClearing} {incomingNeedsAutoSize} globalTransition={transition} currentSlide={current.currentSlide} {item} outSlide={current.outSlide} lines={current.lines} currentStyle={current.currentStyle} let:customSlide let:customItem let:customLines let:customOut let:transition>
+                    <SlideItemTransition precomputed precomputedFontSize={current.preparedFontSizes?.[index]} {preview} {transitionEnabled} {transitioningBetween} {isClearing} {incomingNeedsAutoSize} globalTransition={transition} currentSlide={current.currentSlide} {item} outSlide={current.outSlide} lines={current.lines} currentStyle={current.currentStyle} let:customSlide let:customItem let:customLines let:customOut let:customStyle let:customPreparedFontSize let:transition>
                         <Textbox
                             backdropFilter={current.slideData?.["backdrop-filter"] || ""}
                             chords={customItem.chords?.enabled}
@@ -463,12 +488,13 @@
                             linesStart={customLines?.[currentLineId || ""]?.[item.lineReveal ? "linesStart" : "start"]}
                             linesEnd={customLines?.[currentLineId || ""]?.[item.lineReveal ? "linesEnd" : "end"]}
                             clickRevealed={!!customLines?.[currentLineId || ""]?.clickRevealed}
-                            outputStyle={current.currentStyle}
+                            outputStyle={customStyle}
                             {mirror}
                             {preview}
                             slideIndex={customOut?.index}
                             {styleIdOverride}
                             autoSizeKey={createAutoSizeKey(item, index)}
+                            precomputedFontSize={customPreparedFontSize}
                             updateDynamicValues={!isClearing}
                         />
                     </SlideItemTransition>
@@ -480,8 +506,25 @@
 
 {#if precomputeTargets.length}
     <div class="autosize-precompute" aria-hidden="true">
-        {#each precomputeTargets as target (target.key)}
-            <Textbox item={target.item} {ratio} {outputId} outputStyle={currentStyle} {mirror} {preview} {styleIdOverride} ref={{ type: "show", showId: outSlide?.id, slideId: currentSlide?.id, id: currentSlide?.id || "", layoutId: outSlide?.layout }} autoSizeKey={target.key} on:autosizeReady={handlePrecomputeReady} updateDynamicValues={!isClearing} />
+        {#each precomputeTargets as target (`${target.generation}:${target.key}`)}
+            <Textbox
+                item={target.item}
+                chords={target.item.chords?.enabled}
+                {ratio}
+                {outputId}
+                outputStyle={currentStyle}
+                {mirror}
+                {preview}
+                {styleIdOverride}
+                ref={{ type: "show", showId: outSlide?.id, slideId: currentSlide?.id, id: currentSlide?.id || "", layoutId: outSlide?.layout, origin }}
+                slideIndex={outSlide?.index}
+                linesStart={lines?.[currentLineId || ""]?.[target.item.lineReveal ? "linesStart" : "start"]}
+                linesEnd={lines?.[currentLineId || ""]?.[target.item.lineReveal ? "linesEnd" : "end"]}
+                clickRevealed={!!lines?.[currentLineId || ""]?.clickRevealed}
+                autoSizeKey={target.key}
+                on:autosizeReady={(event) => handlePrecomputeReady(event, target.generation)}
+                updateDynamicValues={!isClearing}
+            />
         {/each}
     </div>
 {/if}
@@ -492,8 +535,8 @@
         position: absolute;
         top: -10000px;
         left: -10000px;
-        width: 0;
-        height: 0;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         pointer-events: none;
         visibility: hidden;

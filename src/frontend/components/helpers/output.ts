@@ -143,11 +143,14 @@ export function toggleOutput(id: string) {
 // overlays: [],
 // transition: null,
 let resetActionTrigger = false
-export function setOutput(type: string, data: any, toggle = false, outputId = "", add = false) {
+export function setOutput(type: string, data: any, toggle = false, outputId = "", add = false, autoAdvance = false) {
     const ref = data?.layout ? _show(data.id).layouts([data.layout]).ref()[0] || [] : []
 
     // stop any active break slide recording when the slide changes
-    if (type === "slide") _stopBreakRecording()
+    if (type === "slide") {
+        _stopBreakRecording()
+        if (data) data.autoAdvance = autoAdvance
+    }
 
     const bindings = data?.bindings || (data?.layout ? ref[data.index]?.data?.bindings || [] : [])
     const resolvedBindings = bindings.length ? resolveOutputIds(bindings) : []
@@ -1890,7 +1893,7 @@ export function getStyleTemplate(outSlide: OutSlide | null, currentStyle: Styles
     return template
 }
 
-function itemHasAutoSize(item: Item) {
+export function itemHasAutoSize(item: Item) {
     return (item.textFit || "none") !== "none" || !!item.auto
 }
 
@@ -2019,6 +2022,8 @@ const defaultMetadataItemStyle = "top: 910px;left: 30px;width: 1860px;height: 15
 const defaultMetadataTextStyle = "font-size: 30px;color: rgb(255 255 255 / 0.8);text-shadow: 2px 2px 4px rgb(0 0 0 / 80%);"
 export function getMetadata(show: Show | undefined, currentStyle: Styles, outSlide: OutSlide | null, _updater = get(templates)) {
     if (!show || !outSlide) return null
+    // Scripture should not inherit the song copyright/credits overlay.
+    if (show.reference?.type === "scripture") return []
 
     const showCategory = get(categories)[show.category || ""] || {}
     const metadataValues = currentStyle.metadata || showCategory.metadata || {}

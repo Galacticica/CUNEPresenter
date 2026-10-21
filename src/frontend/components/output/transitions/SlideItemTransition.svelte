@@ -14,6 +14,8 @@
     // outgoing items hold for auto size delay while incoming content calculates font size
     export let incomingNeedsAutoSize = true
     export let preview = false
+    export let precomputed = false
+    export let precomputedFontSize: number | undefined = undefined
     export let item: Item
     export let currentSlide: any = {}
     export let outSlide: any = {}
@@ -83,7 +85,7 @@
         // EXTRA DELAY
 
         // auto size delay
-        if (!outDelay) {
+        if (!outDelay && !precomputed) {
             let customTemplate = getStyleTemplate(outSlide, currentStyle)
             if (!Object.keys(customTemplate).length && outSlide?.id === "temp") customTemplate = $templates[$scriptureSettings.template] || {}
 
@@ -124,6 +126,8 @@
             lines: clone(lines),
             outSlide: clone(outSlide),
             currentSlide: clone(currentSlide),
+            currentStyle: clone(currentStyle),
+            precomputedFontSize,
             inTransition,
             outTransition,
             transitionBetween,
@@ -155,6 +159,6 @@
 {#each Object.values(currentOut) as transitioning}
     {@const outTransition = !transitionEnabled ? null : isClearing ? clearingOutTransition : getOutTransition(transitioning, incomingNeedsAutoSize, transitioningBetween)}
     <OutputTransition inTransition={transitionEnabled ? transitioning.inTransition : null} {outTransition}>
-        <slot customItem={transitioning.item} customLines={transitioning.lines} customOut={transitioning.outSlide} customSlide={transitioning.currentSlide} transition={transitionEnabled ? transitioning.inTransition : null} />
+        <slot customItem={transitioning.item} customLines={transitioning.lines} customOut={transitioning.outSlide} customSlide={transitioning.currentSlide} customStyle={transitioning.currentStyle} customPreparedFontSize={transitioning.precomputedFontSize} transition={transitionEnabled ? transitioning.inTransition : null} />
     </OutputTransition>
 {/each}

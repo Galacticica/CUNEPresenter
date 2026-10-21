@@ -8,7 +8,6 @@
     import type { AnimationData, Item, LayoutRef, OutBackground, OutScene, OutSlide, Slide, SlideData, Template, Overlays as TOverlays, Transition } from "../../../types/Show"
     import { allOutputs, categories, colorbars, currentWindow, drawSettings, drawTool, effects, media, outputs, overlays, showsCache, styles, templates, transitionData } from "../../stores"
     import { wait } from "../../utils/common"
-    import { custom } from "../../utils/transitions"
     import Draw from "../draw/Draw.svelte"
     import { clone } from "../helpers/array"
     import { defaultLayers, getCurrentStyle, getMetadata, getOutputLines, getOutputTransitions, getResolution, getSlideFilter, getStyleTemplate, setTemplateStyle } from "../helpers/output"
@@ -425,29 +424,8 @@
         {/if}
     {/if}
 
-    {#if actualSlide?.attributionString && layers.includes("slide")}
-        {#if mirror}
-            <p class="attributionString">{actualSlide.attributionString.slice(0, 135)}</p>
-        {:else}
-            <p class="attributionString" transition:custom={textTransition}>{actualSlide.attributionString.slice(0, 135)}</p>
-        {/if}
-    {/if}
-
     <!-- draw -->
     {#if zoomActive}
         <Draw />
     {/if}
 </Zoomed>
-
-<style>
-    .attributionString {
-        position: absolute;
-        bottom: 15px;
-        left: 50%;
-        transform: translateX(-50%);
-
-        font-size: 28px;
-        font-style: italic;
-        opacity: 0.7;
-    }
-</style>

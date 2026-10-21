@@ -6,6 +6,7 @@
     import { activePopup, alertMessage, currentOutputSettings, outputs, styles } from "../../stores"
     import { triggerClickOnEnterSpace } from "../../utils/clickable"
     import { send } from "../../utils/request"
+    import { save } from "../../utils/save"
     import { clone, keysToID, sortByName } from "../helpers/array"
     import Icon from "../helpers/Icon.svelte"
     import { toggleOutputs } from "../helpers/output"
@@ -133,6 +134,7 @@
             send(OUTPUT, ["UPDATE_BOUNDS"], { id: screenId, ...currentScreen })
             // }, 100)
         }, 100)
+        save()
 
         if (activateOutput || alreadySelected) {
             activePopup.set(null)
@@ -149,6 +151,7 @@
             a[screenId].boundsLocked = !a[screenId].boundsLocked
             return a
         })
+        save()
     }
 
     function identifyScreens() {

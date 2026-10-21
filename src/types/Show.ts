@@ -428,7 +428,7 @@ export interface Transition {
     type: TransitionType
     duration: number
     easing: string
-    fadeInOffset?: number // when to start fading in (default = 50%)
+    fadeInOffset?: number // when to start fading in (default = 0%, simultaneous crossfade)
     delay?: number // item in/out wait
     custom?: any // e.g. transition direction
 
@@ -644,6 +644,7 @@ export interface OutSlide {
 
     translations?: number // scripture translations count (for style template)
     attributionString?: string // scripture custom attributionString
+    autoAdvance?: boolean // runtime only: timed advances must not move the operator's focus view
     customDynamicValues?: { [key: string]: string | [string, string][] } // used for scripture slides
 }
 

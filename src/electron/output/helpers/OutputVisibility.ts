@@ -51,7 +51,7 @@ export class OutputVisibility {
         if (state === true && !invalidWindowPosition) {
             this.showWindow(window, output.alwaysOnTop !== false)
 
-            OutputHelper.Bounds.updateBounds({ id: output.id, bounds })
+            OutputHelper.Bounds.updateBounds({ id: output.id, bounds, screen: output.screen })
             return true
         } else {
             this.hideWindow(window, output)
@@ -72,6 +72,11 @@ export class OutputVisibility {
         // never auto position locked bounds
         if (output.boundsLocked) return outputBounds
 
+        // Follow the explicitly selected monitor even when Windows has rearranged
+        // displays and the old coordinates now belong to another screen.
+        const selectedDisplay = output.screen ? displays.find((display) => display.id.toString() === output.screen) : undefined
+        if (selectedDisplay) return { ...selectedDisplay.bounds }
+
         // 1. Primary: Preserve valid coordinates if already within an active physical display
         if (displays.length > 0 && hasValidBounds && output.bounds) {
             const isCenterOnDisplay = displays.some((d) => {
@@ -81,13 +86,6 @@ export class OutputVisibility {
             })
 
             if (isCenterOnDisplay) return output.bounds
-        }
-
-        // 2. Secondary fallback: Look up by target display ID if coordinates are off-screen (e.g. topology changed)
-        if (displays.length > 0 && output.screen) {
-            const isCoveringMain = this.amountCovered(outputBounds, mainWindow!.getBounds()) > 0.5
-            const targetDisplay = isCoveringMain ? null : displays.find((d) => d.id.toString() === output.screen)
-            if (targetDisplay) return { ...targetDisplay.bounds }
         }
 
         // fallback to second display auto positioning if not locked and autoPosition requested or bounds are undefined

@@ -915,6 +915,8 @@ export class OutputLifecycle {
             if (!OutputHelper.Bounds.moveEnabled || OutputHelper.Bounds.updatingBounds || OutputHelper.getOutput(id).boundsLocked) return e.preventDefault()
 
             const bounds = window.getBounds()
+            OutputHelper.getOutput(id).intendedBounds = bounds
+            OutputHelper.getOutput(id).screen = null
             toApp(OUTPUT, { channel: "MOVE", data: { id, bounds } })
         })
 
@@ -923,6 +925,8 @@ export class OutputLifecycle {
             if (OutputHelper.Bounds.moveEnabled || OutputHelper.Bounds.updatingBounds || OutputHelper.getOutput(id).boundsLocked) return e.preventDefault()
 
             const bounds = window.getBounds()
+            OutputHelper.getOutput(id).intendedBounds = bounds
+            OutputHelper.getOutput(id).screen = null
             toApp(OUTPUT, { channel: "MOVE", data: { id, bounds } })
         })
     }

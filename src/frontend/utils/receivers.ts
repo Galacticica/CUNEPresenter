@@ -71,7 +71,7 @@ import { syncDrive } from "./drive"
 import { setLanguage } from "./language"
 import { sendInitialOutputData } from "./listeners"
 import { receive, send } from "./request"
-import { closeApp, save } from "./save"
+import { closeApp, save, scheduleOutputSettingsSave } from "./save"
 import { client } from "./sendData"
 import { previewShortcuts } from "./shortcuts"
 import { restartOutputs } from "./updateSettings"
@@ -139,13 +139,15 @@ const receiveOUTPUTasMAIN: any = {
     },
     ACTION_MAIN: (a: { id: string }) => runAction(get(actions)[a.id], { source: "remote" }),
     MOVE: (data) => {
+        if (!get(outputs)[data.id] || get(outputs)[data.id].boundsLocked) return
         outputs.update((a) => {
             if (!a[data.id] || a[data.id].boundsLocked) return a
 
             a[data.id].bounds = data.bounds
-            if (data.screen) a[data.id].screen = data.screen
+            a[data.id].screen = data.screen || null
             return a
         })
+        scheduleOutputSettingsSave()
     },
     UPDATE_OUTPUTS_DATA: ({ key, value, id, autoSave }) => {
         outputs.update((a) => {

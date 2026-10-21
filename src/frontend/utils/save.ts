@@ -120,6 +120,12 @@ import { newToast, setStatus, startAutosave } from "./common"
 import { syncDrive } from "./drive"
 import { autoDisableRemoteController, stopRemoteController } from "./remoteController"
 
+let outputSettingsSaveTimeout: ReturnType<typeof setTimeout> | undefined
+export function scheduleOutputSettingsSave() {
+    clearTimeout(outputSettingsSaveTimeout)
+    outputSettingsSaveTimeout = setTimeout(() => save(false, { autosave: true }), 300)
+}
+
 export function save(closeWhenFinished = false, customTriggers: SaveActions = {}) {
     updateSyncedOutputs()
     startAutosave() // reset auto save timer

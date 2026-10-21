@@ -264,7 +264,7 @@ export async function playPdf(data: OutSlide | null, next: boolean, loop = false
     const projectItem = get(projects)[get(activeProject) || ""]?.shows?.[get(activeShow)?.index || 0]
     const name = data?.name || projectItem?.name
 
-    setOutput("slide", { type: "pdf", id: data.id, page: nextPage, pages, name })
+    setOutput("slide", { type: "pdf", id: data.id, page: nextPage, pages, name }, false, "", false, loop)
     clearBackground()
 
     const timer = projectItem?.data?.timer || 0

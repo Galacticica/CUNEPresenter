@@ -1,5 +1,10 @@
 const { readdirSync, existsSync, lstatSync, unlinkSync, rmdirSync, readFileSync, writeFileSync, copyFileSync } = require("fs")
 const { join } = require("path")
+const { setIndexHtmlMode } = require("./indexHtml")
+
+// A previous installer build leaves the production entry point in public/.
+// Development deletes those bundles, so restore the Vite entry before starting.
+if (process.env.NODE_ENV !== "production") setIndexHtmlMode(false)
 
 // app build file paths
 const buildSveltePath = join(__dirname, "..", "public", "build")

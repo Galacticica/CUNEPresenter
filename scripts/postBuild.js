@@ -1,5 +1,6 @@
 const { readdirSync, statSync, readFileSync, writeFileSync, existsSync, lstatSync, unlinkSync, rmdirSync, mkdirSync, rename } = require("fs")
 const { join } = require("path")
+const { setIndexHtmlMode } = require("./indexHtml")
 
 const Terser = require("terser")
 // const HTMLMinifier = require("html-minifier")
@@ -165,23 +166,13 @@ function renameOpusBuild() {
     })
 }
 
-const devScriptPath = '<script type="module" src="/src/frontend/main.ts"></script>'
-const prodHTMLPaths = '<script type="module" crossorigin src="./build/bundle.js"></script><link rel="stylesheet" href="./build/bundle.css">'
-function setProductionHTML() {
-    const sourceIndexPath = join(__dirname, "..", "public", "index.html")
-    let htmlContent = readFileSync(sourceIndexPath, "utf8")
-    if (!htmlContent.includes(devScriptPath) && !htmlContent.includes(prodHTMLPaths)) throw new Error("Dev script path changed!")
-    htmlContent = htmlContent.replace(devScriptPath, prodHTMLPaths)
-    writeFileSync(sourceIndexPath, htmlContent)
-}
-
 // EXECUTE
 
 ;(async () => {
     const bundledElectronPath = join(__dirname, "..", "build")
     await minifyJSFiles(getAllJSFiles(bundledElectronPath))
+    setIndexHtmlMode(true)
     await copyPublicFolderAndMinify(join(__dirname, "..", "public"), join(bundledElectronPath, "public"))
-    setProductionHTML()
     removeTsConfigs()
 
     // fix for OPUS electron vs node env

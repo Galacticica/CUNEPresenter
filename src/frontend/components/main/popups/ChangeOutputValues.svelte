@@ -3,6 +3,7 @@
     import type { Output } from "../../../../types/Output"
     import { activePopup, currentOutputSettings, outputs, special } from "../../../stores"
     import { send } from "../../../utils/request"
+    import { save } from "../../../utils/save"
     import HRule from "../../input/HRule.svelte"
     import InputRow from "../../input/InputRow.svelte"
     import MaterialButton from "../../inputs/MaterialButton.svelte"
@@ -39,6 +40,7 @@
         const bounds = typeof type === "object" ? type : { [type]: value }
         updateOutput("bounds", { ...currentOutput?.bounds, ...bounds })
         updateOutput("screen", null)
+        save()
         setTimeout(() => send(OUTPUT, ["UPDATE_BOUNDS"], currentOutput), 10)
     }
 

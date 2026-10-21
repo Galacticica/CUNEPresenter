@@ -55,8 +55,10 @@
     let isScrolling: any = null
     $: if (active !== -1) scrollToActive()
     function scrollToActive() {
+        if (outSlide?.autoAdvance) return
         if (isScrolling) clearTimeout(isScrolling)
         isScrolling = setTimeout(() => {
+            if (outSlide?.autoAdvance) return
             const slide = document.getElementById("id_" + getId(path) + "_" + active)
             if (!slide) return
 

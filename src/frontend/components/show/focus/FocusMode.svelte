@@ -49,14 +49,20 @@
     $: active = $activeFocus
     let scrollingToActive: any = null
     let previousId = ""
+    let previousFocus = ""
     // auto scroll to active slide when show or output changes
-    $: if (active || outputIndex !== undefined) scrollToActive()
+    $: if (active || outputIndex !== undefined || outputShowId || outputShowLayout) scrollToActive()
     async function scrollToActive() {
+        const focus = JSON.stringify(active)
+        const focusChanged = focus !== previousFocus
+        previousFocus = focus
+        if (output?.out?.slide?.autoAdvance && !focusChanged) return
         if (!listElem || isScrolling || projectUpdating) return
 
         // wait until both output and active has updated if they update at mostly the same time
         if (await hasNewerUpdate("FOCUS_SCROLL")) return
         if (!listElem) return
+        if (output?.out?.slide?.autoAdvance && !focusChanged) return
 
         let currentId = active.id
         let slideIndex = active.id === outputShowId ? outputIndex || 0 : 0

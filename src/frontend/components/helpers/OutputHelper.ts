@@ -85,7 +85,7 @@ export class OutputHelper {
 
             if (!options.playNext && this.quickChangeBack(outputId, show, next, options)) return
 
-            this.playSlide(outputId, newSlide, options.slideLayers)
+            this.playSlide(outputId, newSlide, options.slideLayers, options.playNext)
             return
         }
 
@@ -151,12 +151,12 @@ export class OutputHelper {
             const newItem = projectItems[newIndex]
             if (!newItem) return
 
-            activeFocus.set({ id: newItem.id, index: newIndex, type: newItem.type || "show" })
+            if (!options.playNext) activeFocus.set({ id: newItem.id, index: newIndex, type: newItem.type || "show" })
 
             // play directly in focus mode
             if ((newItem.type || "show") === "show") {
                 const newOut = this.getSubsequent(outputId, { id: newItem.id, layout: newItem.layout }, next)
-                if (newOut) this.playSlide(outputId, newOut, options.slideLayers)
+                if (newOut) this.playSlide(outputId, newOut, options.slideLayers, options.playNext)
             } else {
                 this.playItem(outputId, newItem, next, options)
             }
@@ -182,7 +182,7 @@ export class OutputHelper {
                 // allow show to load first
                 setTimeout(() => {
                     const newOut = this.getSubsequent(outputId, { id: newItem.id, layout: newItem.layout }, next)
-                    if (newOut) this.playSlide(outputId, newOut, options.slideLayers)
+                    if (newOut) this.playSlide(outputId, newOut, options.slideLayers, options.playNext)
                 }, 10)
             } else {
                 this.playItem(outputId, newItem, next, options)
@@ -491,7 +491,7 @@ export class OutputHelper {
 
     /////
 
-    private static playSlide(outputId: string, data: OutSlide, slideLayers: boolean = true) {
+    private static playSlide(outputId: string, data: OutSlide, slideLayers: boolean = true, autoAdvance = false) {
         this.previousOutputted = null
 
         const layout = this.getShowLayout(data)
@@ -507,7 +507,7 @@ export class OutputHelper {
                 delete this.pendingSlides[outputId]
             }
 
-            setOutput("slide", data, false, outputId)
+            setOutput("slide", data, false, outputId, false, autoAdvance)
             updateOut(data.id, data.index!, layout, slideLayers, outputId)
         })
     }

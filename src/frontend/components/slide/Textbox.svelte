@@ -65,6 +65,8 @@
     export let styleIdOverride = ""
     // expose an optional key so parents can track autosize readiness per item
     export let autoSizeKey = ""
+    // Measured by the output's hidden probe for this exact incoming render.
+    export let precomputedFontSize: number | undefined = undefined
     export let updateDynamicValues = true
 
     // reuse autosize work across components by caching measurements alongside a signature
@@ -308,9 +310,12 @@
         const textFit = item?.textFit || (item?.auto ? (isTextItem ? "shrinkToFit" : "growToFit") : "none")
         const hasAutoSize = stageAutoSize || textFit !== "none"
         if (hasAutoSize) {
-            const willHide = shouldHideUntilAutoSizeCompletes()
+            const hasPreparedSize = Number.isFinite(precomputedFontSize) && (precomputedFontSize || 0) > 0
+            const willHide = !hasPreparedSize && shouldHideUntilAutoSizeCompletes()
 
-            if (isStage) {
+            if (hasPreparedSize) {
+                fontSize = precomputedFontSize!
+            } else if (isStage) {
                 // Keep existing fontSize on stage to prevent flicker during drag
             } else if (willHide) {
                 fontSize = 0

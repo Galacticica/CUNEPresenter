@@ -20,12 +20,13 @@ export class OutputBounds {
         }, 1000)
     }
 
-    static updateBounds(data: { id: string; bounds: Rectangle }) {
+    static updateBounds(data: { id: string; bounds: Rectangle; screen?: string | null }) {
         const output = OutputHelper.getOutput(data.id)
         if (!output || !output.window || output.window.isDestroyed()) return
 
         // keep the configured (logical) resolution as the intent
         output.intendedBounds = data.bounds
+        if ("screen" in data) output.screen = data.screen
 
         // actual window size to render at (DPI-corrected for invisible/capture outputs)
         const bounds = this.getRenderBounds(output, data.bounds)
@@ -94,6 +95,7 @@ export class OutputBounds {
             const point = { x: centerLeft, y: centerTop }
             const targetDisplay = screen.getDisplayNearestPoint(point)
             output.screen = targetDisplay.id.toString()
+            output.intendedBounds = { ...targetDisplay.bounds }
 
             if (JSON.stringify(wBounds) !== JSON.stringify(targetDisplay.bounds)) {
                 output.window.setBounds(targetDisplay.bounds)

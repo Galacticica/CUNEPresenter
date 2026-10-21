@@ -330,7 +330,7 @@
 </InputRow>
 
 {#if showMore && selectedType === "text"}
-    <MaterialNumberInput label="transition.fade_in_offset (%)" disabled={isDisabled} value={currentTransition?.fadeInOffset ?? 50} defaultValue={50} max={100} step={10} on:change={(e) => changeTransition(selectedType, "fadeInOffset", e.detail)} />
+    <MaterialNumberInput label="transition.fade_in_offset (%)" disabled={isDisabled} value={currentTransition?.fadeInOffset ?? 0} defaultValue={0} max={100} step={10} on:change={(e) => changeTransition(selectedType, "fadeInOffset", e.detail)} />
 {/if}
 
 <style>

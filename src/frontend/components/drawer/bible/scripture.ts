@@ -1034,7 +1034,7 @@ export async function getScriptureSlidesNew(data: any, onlyOne = false, disableR
 
     // metadata, uses the default "meta_" values
     for (const [key, value] of Object.entries(biblesContent[0]?.metadata || {})) {
-        globalCustomDynamicValues[`meta_${key.toLowerCase()}`] = value
+        globalCustomDynamicValues[`meta_${key.toLowerCase()}`] = key.toLowerCase() === "copyright" ? "" : value
         slidesString = slidesString.replaceAll(`{meta_${key.toLowerCase()}}`, globalCustomDynamicValues[`meta_${key.toLowerCase()}`])
     }
 
